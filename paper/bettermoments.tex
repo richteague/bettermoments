@@ -91,11 +91,13 @@ Robust moment maps for ALMA observations
 
 Using the kinematics of gas within a protoplanetary disk, particularly detecting deviation from Keplerian rotation, has been shown to be a promising method for inferring planet-disk interactions (Perez 2015, 2018, Teague 2018, Pinte 2018). For such studies a reliable velocity profile must be extracted from the datacube.
 
-Typically (line-of-sight) velocity maps, more commonly called `first moment maps', are made by taking the intensity-weighted velocity at each pixel (equation?). The resulting value is very sensitive to the noise in the spectrum and, particularly in the case where near and far sides of the disk are resolved, biased by non-symmetric line profiles. An alternative is to use the velocity coordinate of the maximum intensity at each pixel (called the `ninth moment' if generated using \texttt{CASA}).
+Typically (line-of-sight) velocity maps, more commonly called `first moment maps', are made by taking the intensity-weighted velocity at each pixel (equation?). The resulting value is very sensitive to the noise in the spectrum and, particularly in the case where near and far sides of the disk are resolved, biased by non-symmetric line profiles. An alternative is to use the velocity coordinate of the maximum intensity at each pixel (called the `ninth moment' if generated using \texttt{CASA}). While insensitive to emission arising from the far side of the disk, the precision of this method is limited by the spectral resolution of the data. 
 
- along the spectral axis using either an intensity-weighted average velocity (usually called a `first moment map'), or using the velocity of the peak pixel (called using the `ninth moment' when generated using \texttt{CASA}).
+As noise affects both these methods, sigma-clipping and masking (using some Keplerian profile) are typically used to improve the fidelity, however make strong assumptions about the emission morphology
 
-The former is strongly affected by noise and non-symmetric line profiles resulting in the use of sigma-clipping or Keplerian-mask to boost the signal. Conversely, the `ninth moment' approach is limited by the spectral resolution of the data and the noise. In addition, these methods do not provide a reasonable measure of the uncertainty
+Furthermore
+
+An alternative approach can be made to fit an analytical line profile to the data and extract the line centre. This however makes the implicity
 
 This research note. \citep{Perez:2018}
 
