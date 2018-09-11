@@ -99,6 +99,43 @@ The former is strongly affected by noise and non-symmetric line profiles resulti
 
 This research note. \citep{Perez:2018}
 
+\section{Technical details}
+
+It has been demonstrated that fitting a quadratic surface to astronomical
+imaging can produce near-optimal estimates of source centroids
+\citep{Vakili:2016}.
+Here we apply this method to estimate the velocity centroid in each pixel
+non-parametrically.
+This method has the benefit of being less sensitive to the shape of the wings
+of the line spread function than standard moment estimation methods.
+Unlike the `ninth moment' method, our quadratic method achieves sub-pixel
+precision in the velocity estimates.
+
+The fundamental idea upon which this method is built is that we can fit a
+quadratic model to the intensity values surrounding the maximum pixel and
+analytically maximize that function to find the velocity estimate.
+Following \citet{Vakili:2016}, we find the pixel of maximum intensity in the
+spectrum and extract that pixel value $f_0$ and the one to the left $f_-$ and
+right $f_+$.
+Modeling these three intensities as a quadratic
+\begin{eqnarray}
+f(x) &=& a_0 + a_1\,(x-x_0) + a_2\,{(x-x_0)}^2
+\eqlabel{quad}
+\end{eqnarray}
+where $x_0$ is the pixel coordinate of maximum intensity and $x$ is in units
+of pixels, we find
+\begin{eqnarray}
+a_0 &=& f_0 \\
+a_1 &=& \frac{1}{2}(f_+ - f_-) \\
+a_2 &=& \frac{1}{2}(f_+ + f_- - 2\,f_0) \quad.
+\end{eqnarray}
+By maximizing \Eq{quad}, we find the following estimate for the pixel
+coordinate of maximum velocity:
+\begin{eqnarray}
+x_\mathrm{max} &=& x_0 - \frac{a_1}{2\,a_2} \\
+    &=& x_0 - \frac{f_+ - f_-}{2\,(f_+ + f_- - 2\,f_0)} \quad.
+\end{eqnarray}
+
 \bibliography{bettermoments}
 
 %\begin{figure}[htbp]
