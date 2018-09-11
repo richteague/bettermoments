@@ -82,6 +82,21 @@ Robust moment maps for ALMA observations
 
 \section{Introduction}
 
+% > Kinematics used to trace planet-disk interaction (and other star stuff).
+% > Moment maps require sigma-clipping or masking to get good values. Bad!
+% > No real uncertainties for the values.
+% > Intensity weighted values also confused by far side of the disk (make the disk look flat).
+% > Can fit a Gaussian, but slow and assumes an implicit line profile (not true for optically thick lines due to core saturation and seeing the back side of the disk).
+% > Centroid fitting better.
+
+Using the kinematics of gas within a protoplanetary disk, particularly detecting deviation from Keplerian rotation, has been shown to be a promising method for inferring planet-disk interactions (Perez 2015, 2018, Teague 2018, Pinte 2018). For such studies a reliable velocity profile must be extracted from the datacube.
+
+Typically (line-of-sight) velocity maps, more commonly called `first moment maps', are made by taking the intensity-weighted velocity at each pixel (equation?). The resulting value is very sensitive to the noise in the spectrum and, particularly in the case where near and far sides of the disk are resolved, biased by non-symmetric line profiles. An alternative is to use the velocity coordinate of the maximum intensity at each pixel (called the `ninth moment' if generated using \texttt{CASA}).
+
+ along the spectral axis using either an intensity-weighted average velocity (usually called a `first moment map'), or using the velocity of the peak pixel (called using the `ninth moment' when generated using \texttt{CASA}).
+
+The former is strongly affected by noise and non-symmetric line profiles resulting in the use of sigma-clipping or Keplerian-mask to boost the signal. Conversely, the `ninth moment' approach is limited by the spectral resolution of the data and the noise. In addition, these methods do not provide a reasonable measure of the uncertainty
+
 This research note. \citep{Perez:2018}
 
 \bibliography{bettermoments}
