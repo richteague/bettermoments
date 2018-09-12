@@ -82,20 +82,11 @@ Robust moment maps for ALMA observations
 
 \section{Introduction}
 
-% > Kinematics used to trace planet-disk interaction (and other star stuff).
-% > Moment maps require sigma-clipping or masking to get good values. Bad!
-% > No real uncertainties for the values.
-% > Intensity weighted values also confused by far side of the disk (make the disk look flat).
-% > Can fit a Gaussian, but slow and assumes an implicit line profile (not true for optically thick lines due to core saturation and seeing the back side of the disk).
-% > Centroid fitting better.
+Inferring the line of sight velocity from Doppler shifted spectra is a commonly used analysis. Multiple approaches exist in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are `first moment maps` or the velocity of the maximum intensity (called at the `ninth moment` when calculated using \texttt{CASA}, as minomer as it does not relate to a statistical moment).
 
-Using the kinematics of gas within a protoplanetary disk, particularly detecting deviation from Keplerian rotation, has been shown to be a promising method for inferring planet-disk interactions (Perez 2015, 2018, Teague 2018, Pinte 2018). For such studies a reliable velocity profile must be extracted from the datacube.
+The first moment approach is strongly affected by the noise in the spectrum and the underlying profile. Clipping the data below some signal-to-noise value or masking the data are typically used to avoid these issues, placing a strong prior on the emission distribution, potentially introducing (or removing) features in the data. These issues can be avoided using the velocity of the maximum pixel, however the precision of this approach is limited by the velocity resolution of the data.
 
-Typically (line-of-sight) velocity maps, more commonly called `first moment maps', are made by taking the intensity-weighted velocity at each pixel (equation?). The resulting value is very sensitive to the noise in the spectrum and, particularly in the case where near and far sides of the disk are resolved, biased by non-symmetric line profiles. An alternative is to use the velocity coordinate of the maximum intensity at each pixel (called the `ninth moment' if generated using \texttt{CASA}). While insensitive to emission arising from the far side of the disk, the precision of this method is limited by the spectral resolution of the data. 
-
-As noise affects both these methods, sigma-clipping and masking (using some Keplerian profile) are typically used to improve the fidelity, however make strong assumptions about the emission morphology
-
-Furthermore
+Other approaches involve fitting a line profile believed to be representative of the true line profile. In addition to be computationally costly, this approach assumes that the true line profile is known and deviations from this profile can often lead to incorrect inferences. For example, spatially resolved protoplanetary disks have been be shown to have a two-Gaussian component as emissionis observed from both the front side of the disk as well as the rear \citep{Rosenfeld:2013}
 
 An alternative approach can be made to fit an analytical line profile to the data and extract the line centre. This however makes the implicity
 
