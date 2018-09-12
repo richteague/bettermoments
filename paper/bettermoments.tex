@@ -86,7 +86,15 @@ Inferring the line of sight velocity from Doppler shifted spectra is a commonly 
 
 The first moment approach is strongly affected by the noise in the spectrum and the underlying profile. Clipping the data below some signal-to-noise value or masking the data are typically used to avoid these issues, placing a strong prior on the emission distribution, potentially introducing (or removing) features in the data. These issues can be avoided using the velocity of the maximum pixel, however the precision of this approach is limited by the velocity resolution of the data.
 
+<<<<<<< HEAD
 Other approaches involve fitting a line profile believed to be representative of the true line profile. In addition to be computationally costly, this approach assumes that the true line profile is known and deviations from this profile can often lead to incorrect inferences. For example, spatially resolved protoplanetary disks have been be shown to have a two-Gaussian component as emissionis observed from both the front side of the disk as well as the rear \citep{Rosenfeld:2013}
+=======
+Typically (line-of-sight) velocity maps, more commonly called `first moment maps', are made by taking the intensity-weighted velocity at each pixel (equation?). The resulting value is very sensitive to the noise in the spectrum and, particularly in the case where near and far sides of the disk are resolved, biased by non-symmetric line profiles. An alternative is to use the velocity coordinate of the maximum intensity at each pixel (called the `ninth moment' if generated using \texttt{CASA}). While insensitive to emission arising from the far side of the disk, the precision of this method is limited by the spectral resolution of the data.
+
+As noise affects both these methods, sigma-clipping and masking (using some Keplerian profile) are typically used to improve the fidelity, however make strong assumptions about the emission morphology
+
+Furthermore
+>>>>>>> 7679adf72121d48dd8b82404ef9f38272988d83f
 
 An alternative approach can be made to fit an analytical line profile to the data and extract the line centre. This however makes the implicity
 
@@ -132,6 +140,28 @@ x_\mathrm{max} &=& x_0 - \frac{a_1}{2\,a_2} \\
 We can also estimate the statistical uncertainty on $x_\mathrm{max}$ by
 propagating the uncertainty from the fluxes to uncertainties on the polynomial
 coefficients.
+If we assume independent Gaussian uncertainties on the fluxes with standard
+deviation $\sigma$, the covariance matrix for the polynomial coefficients
+$\bvec{a} = {(a_2,\,a_1,\,a_0)}^\T$ is
+\begin{eqnarray}
+\Sigma_\bvec{a} = \sigma^2\,\left(\begin{array}{ccc}
+\frac{3}{2} \quad & \quad 0 \quad &\quad 1 \\
+0\quad &\quad \frac{1}{2}\quad &\quad 0 \\
+-1\quad &\quad 0\quad &\quad 1
+\end{array}\right)\quad.
+\end{eqnarray}
+Using these values and linearized propagation of uncertainty, we find the
+following approximation for the \emph{statistical} uncertainty on
+$x_\mathrm{max}$
+\begin{eqnarray}
+{\sigma_{x_\mathrm{max}}}^2 = \frac{\sigma^2}{8}\,\left[
+    \frac{3}{{a_2}^2} + \frac{{a_1}^2}{{a_2}^4}
+\right]\quad.
+\end{eqnarray}
+We emphasize that there are other sources of systematic uncertainty that must
+be considered in production.
+
+
 
 \bibliography{bettermoments}
 
