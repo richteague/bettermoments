@@ -80,9 +80,9 @@ Robust moment maps for ALMA observations
 %methods: statistical
 %}
 
-\section{Introduction}
+\section{Background}
 
-Inferring the line of sight velocity from Doppler shifted spectra is a commonly used analysis in the study of protoplanetary disks, galaxies and star forming regions. Multiple approaches in collapsing a data cube to a single velocity at each pixel exist in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are `first moment maps' or the velocity of the maximum intensity, called the `ninth moment' when calculated using \texttt{CASA} (although a minomer as it does not relate to a statistical moment, we adopt this terminology for this note).
+Inferring the line-of-sight velocity from Doppler shifted spectra is a commonly used analysis in the study of protoplanetary disks, galaxies and nearby star forming regions. Multiple approaches in collapsing a data cube to a single velocity at each pixel exist in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are `first moment maps', the intensity weighted average velocity, or the velocity of the maximum intensity, called the `ninth moment' when calculated using \texttt{CASA} (although a minomer as it does not relate to a statistical moment, we adopt this terminology for this note).
 
 The first moment approach is strongly affected by the noise in the spectrum and the (a)symmetry of the intrinsic profile. Clipping the data below some signal-to-noise value or masking the data are typically used to avoid these issues, placing a strong prior on the emission distribution, potentially introducing (or removing) features in the data. These issues can be avoided using the velocity of the maximum pixel, however the precision of this approach is limited by the velocity resolution of the data.
 
