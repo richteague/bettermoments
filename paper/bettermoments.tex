@@ -82,23 +82,13 @@ Robust moment maps for ALMA observations
 
 \section{Introduction}
 
-Inferring the line of sight velocity from Doppler shifted spectra is a commonly used analysis. Multiple approaches exist in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are `first moment maps` or the velocity of the maximum intensity (called at the `ninth moment` when calculated using \texttt{CASA}, as minomer as it does not relate to a statistical moment).
+Inferring the line of sight velocity from Doppler shifted spectra is a commonly used analysis in the study of protoplanetary disks, galaxies and star forming regions. Multiple approaches in collapsing a data cube to a single velocity at each pixel exist in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are `first moment maps' or the velocity of the maximum intensity, called the `ninth moment' when calculated using \texttt{CASA} (although a minomer as it does not relate to a statistical moment, we adopt this terminology for this note).
 
-The first moment approach is strongly affected by the noise in the spectrum and the underlying profile. Clipping the data below some signal-to-noise value or masking the data are typically used to avoid these issues, placing a strong prior on the emission distribution, potentially introducing (or removing) features in the data. These issues can be avoided using the velocity of the maximum pixel, however the precision of this approach is limited by the velocity resolution of the data.
+The first moment approach is strongly affected by the noise in the spectrum and the (a)symmetry of the intrinsic profile. Clipping the data below some signal-to-noise value or masking the data are typically used to avoid these issues, placing a strong prior on the emission distribution, potentially introducing (or removing) features in the data. These issues can be avoided using the velocity of the maximum pixel, however the precision of this approach is limited by the velocity resolution of the data.
 
-<<<<<<< HEAD
-Other approaches involve fitting a line profile believed to be representative of the true line profile. In addition to be computationally costly, this approach assumes that the true line profile is known and deviations from this profile can often lead to incorrect inferences. For example, spatially resolved protoplanetary disks have been be shown to have a two-Gaussian component as emissionis observed from both the front side of the disk as well as the rear \citep{Rosenfeld:2013}
-=======
-Typically (line-of-sight) velocity maps, more commonly called `first moment maps', are made by taking the intensity-weighted velocity at each pixel (equation?). The resulting value is very sensitive to the noise in the spectrum and, particularly in the case where near and far sides of the disk are resolved, biased by non-symmetric line profiles. An alternative is to use the velocity coordinate of the maximum intensity at each pixel (called the `ninth moment' if generated using \texttt{CASA}). While insensitive to emission arising from the far side of the disk, the precision of this method is limited by the spectral resolution of the data.
+Other approaches involve fitting a line profile believed to be representative of the true line profile. In addition to be computationally expensive, this approach implicitly assumes that the true line profile is known, but deviations from this profile can often lead to incorrect inferences. For example, spatially resolved protoplanetary disks have been be shown to have a two-Gaussian component as emission is observed from both the front side of the disk as well as the rear \citep{Rosenfeld:2013} and the fitting of a single Gaussian component will bias the result.
 
-As noise affects both these methods, sigma-clipping and masking (using some Keplerian profile) are typically used to improve the fidelity, however make strong assumptions about the emission morphology
-
-Furthermore
->>>>>>> 7679adf72121d48dd8b82404ef9f38272988d83f
-
-An alternative approach can be made to fit an analytical line profile to the data and extract the line centre. This however makes the implicity
-
-This research note. \citep{Perez:2018}
+In this research note we demonstrate a new method to infer the line-of-sight velocity component which combines the sub-channel precision from the first moment map method and the model independence of the ninth moment approach.
 
 \section{Technical details}
 
@@ -161,28 +151,21 @@ $x_\mathrm{max}$
 We emphasize that there are other sources of systematic uncertainty that must
 be considered in production.
 
+\section{Demonstration of Method}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../notebooks/simulated-spectrum.pdf}
+\includegraphics{moment_comparison.pdf}
+\caption{Top row: Comparisons of methods used to infer the velocity profile and their associated accuracy and precision. Bottom row: comparisons of methods used to infer the velocity of HD~135344B. \label{figure}}
+\end{figure}
+
+The top row of Fig.~\ref{figure} compares the accuracy and precision of different approaches for a non-Gaussian line profile. The left panel shows in blue the quadratic fit to the peak pixel and the neighboring pixels, while in green shows a Gaussian profile fit. The orange, red and purple vertical lines show the inferred velocity using the ninth moment method and the first moment method with both a $3\sigma$ clip and no clipping, respectively. The right hand panel compares the accuracy and precision of these methods.
+
+As a demonstration with real data, we image Atacama Large (sub-)Millimeter Array observations of $^{13}$CO in the well studied protoplanetary disk HD~135344B at a velocity resolution of $330~{\rm m\,s^{-1}}$ \citep[ALMA Project 2012.1.00158.S]{vanderMarel:2016} . The bottom row of Fig.~\ref{figure} compares the inferred line-of-sight velocity using, left to right, the intensity weighted average (first moment map), clipping all values below $3\sigma$, the velocity of the maximum intensity, and finally the quadratic approach described in the previous section. Clearly the first moment approach suffers from noise features which are dependent on the level of clipping applied. The ninth moment is not affected by such features, however is limited in precision by the observations. The quadratic approach does not suffer from noise features while maintaining a high precision on the inferred velocity.
 
 \bibliography{bettermoments}
 
-%\begin{figure}[htbp]
-%\begin{center}
-%\includegraphics[width=0.8\textwidth]{figure.pdf}
-%\caption{%
-%    The empirical computational scaling of the algorithms.
-%    \emph{(top row)}: The cost of computing \eq{loglike} as a
-%    function of the number of data points ($N$; left) and the model complexity
-%    ($J$; right).
-%    \emph{(bottom row)}: The cost of computing the gradient of \eq{loglike}
-%    with respect to the vector $\bvec{a}$ and the matrices $U$, $V$, and $P$.
-%    In the left panels, each line corresponds to a different value of $J$ as
-%    indicated in the legend (with $J$ increasing from bottom to top).
-%    Similarly, in the right panels, the lines correspond to different values
-%    of $N$ increasing from bottom to top.
-%    In both cases, the theoretical scaling is $\mathcal{O}(N,J^2)$.
-%\figurelabel{figure}}
-%\end{center}
-%\end{figure}
 
 
 \end{document}
