@@ -13,10 +13,10 @@ import bettermoments as bm
 
 @pytest.fixture
 def mock_data(Nchan=64, Npix=128):
-    axis, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix, Tkin0=150)
+    axis, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix)
     data = data[:, :-1, :]
     vproj = vproj[:-1, :]
-    assert data.shape == (Nchan+1, Npix-1, Npix)
+    assert data.shape == (Nchan, Npix-1, Npix)
     assert data.shape[1:] == vproj.shape
     return (velax, data, vproj)
 
