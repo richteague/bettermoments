@@ -2,8 +2,6 @@
 
 from __future__ import division, print_function
 
-__all__ = []
-
 import pytest
 import numpy as np
 import scipy.constants as sc
@@ -15,16 +13,16 @@ import bettermoments as bm
 
 @pytest.fixture
 def mock_data(Nchan=64, Npix=128):
-    _, _, data, vproj = disk_model(Nchan=Nchan, Npix=Npix, beam=0.3)
+    axis, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix, Tkin0=150)
     data = data[:, :-1, :]
     vproj = vproj[:-1, :]
     assert data.shape == (Nchan+1, Npix-1, Npix)
     assert data.shape[1:] == vproj.shape
-    return (data, vproj)
+    return (velax, data, vproj)
 
 
 def test_shapes(mock_data):
-    data, vproj = mock_data
+    velax, data, vproj = mock_data
 
     # No uncertainties
     x, dx, y, dy = bm.quadratic(data)
@@ -62,8 +60,20 @@ def test_shapes(mock_data):
         old_axis = axis
 
 
+def test_shape_error(mock_data):
+    velax, data, vproj = mock_data
+    sigma = np.random.rand(*data.shape)
+
+    with pytest.raises(ValueError):
+        bm.quadratic(data, sigma[1:])
+    with pytest.raises(ValueError):
+        bm.quadratic(data, sigma[:, 1:])
+    with pytest.raises(ValueError):
+        bm.quadratic(data, sigma[:, :, 1:])
+
+
 def test_constant_uncertainties(mock_data):
-    data, vproj = mock_data
+    velax, data, vproj = mock_data
     sig1 = 1.0
     x1, dx1, y1, dy1 = bm.quadratic(data, sig1)
     sig2 = sig1 + np.zeros_like(data)
@@ -72,6 +82,89 @@ def test_constant_uncertainties(mock_data):
     assert np.allclose(dx1, dx2)
     assert np.allclose(y1, y2)
     assert np.allclose(dy1, dy2)
+
+
+def test_uncertainty_axis(mock_data):
+    np.random.seed(42)
+    velax, data, vproj = mock_data
+    sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
+    x1, dx1, y1, dy1 = bm.quadratic(data, sigma)
+
+    old_axis = 0
+    for axis in [1, 2]:
+        data = np.moveaxis(data, old_axis, axis)
+        sigma = np.moveaxis(sigma, old_axis, axis)
+        x2, dx2, y2, dy2 = bm.quadratic(data, sigma, axis=axis)
+        assert np.allclose(x1, x2)
+        assert np.allclose(dx1, dx2)
+        assert np.allclose(y1, y2)
+        assert np.allclose(dy1, dy2)
+        old_axis = axis
+
+
+def test_fortran_order(mock_data):
+    np.random.seed(42)
+    velax, data, vproj = mock_data
+    sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
+    x1, dx1, y1, dy1 = bm.quadratic(data, sigma)
+
+    data_f = np.array(data, copy=True, order="F")
+    x2, dx2, y2, dy2 = bm.quadratic(data_f, sigma)
+    assert np.allclose(x1, x2)
+    assert np.allclose(dx1, dx2)
+    assert np.allclose(y1, y2)
+    assert np.allclose(dy1, dy2)
+
+    sigma_f = np.array(sigma, copy=True, order="F")
+    x2, dx2, y2, dy2 = bm.quadratic(data_f, sigma_f)
+    assert np.allclose(x1, x2)
+    assert np.allclose(dx1, dx2)
+    assert np.allclose(y1, y2)
+    assert np.allclose(dy1, dy2)
+
+    old_axis = 0
+    for axis in [1, 2]:
+        data_f = np.moveaxis(data_f, old_axis, axis)
+        sigma_f = np.moveaxis(sigma_f, old_axis, axis)
+        x2, dx2, y2, dy2 = bm.quadratic(data_f, sigma_f, axis=axis)
+        assert np.allclose(x1, x2)
+        assert np.allclose(dx1, dx2)
+        assert np.allclose(y1, y2)
+        assert np.allclose(dy1, dy2)
+        old_axis = axis
+
+
+def test_compare_ninth(mock_data):
+    velax, data, vproj = mock_data
+    x9 = np.argmax(data, axis=0)
+    x = bm.quadratic(data)[0]
+    assert np.all(np.abs(x - x9) <= 0.5)
+
+
+def test_isclose(mock_data):
+    velax, data, vproj = mock_data
+    x0 = velax[0]
+    dx = velax[1] - velax[0]
+    x = bm.quadratic(data, x0=x0, dx=dx)[0]
+
+    a1, b1 = vproj.shape[0]//3, 2*vproj.shape[0]//3
+    a2, b2 = vproj.shape[1]//3, 2*vproj.shape[1]//3
+
+    assert np.all(np.abs(x[a1:b1, a2:b2] - vproj[a1:b1, a2:b2]) < dx)
+
+
+def test_units(mock_data):
+    np.random.seed(42)
+    velax, data, vproj = mock_data
+    sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
+    x1, dx1, y1, dy1 = bm.quadratic(data, sigma)
+
+    x0 = velax[0]
+    dx = velax[1] - velax[0]
+    x2, dx2, y2, dy2 = bm.quadratic(data, sigma, x0=x0, dx=dx)
+
+    assert np.allclose(x0 + x1*dx, x2)
+    assert np.allclose(dx1*dx, dx2)
 
 
 # ============================= #
