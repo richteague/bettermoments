@@ -120,64 +120,62 @@ shape.
 
 \section{Technical details}
 
-It has been demonstrated that fitting a quadratic surface to astronomical
-imaging can produce near-optimal estimates of source centroids
-\citep{Vakili:2016}.
-Here we apply this method to estimate the velocity centroid in each pixel
-non-parametrically.
-This method has the benefit of being less sensitive to the shape of the wings
-of the line spread function than standard moment estimation methods.
-Unlike the `ninth moment' method, our quadratic method achieves sub-pixel
-precision in the velocity estimates.
+It has been demonstrated that the centroid of photometric sources can be
+determined with near-optimal precision by fitting a quadratic surface to the
+brightest central pixels of the point spread function \citep{Vakili:2016}.
+Here we apply this method in one dimension to estimate the centroid of
+spectral lines.
+The fundamental idea is that we can fit a quadratic model to the brightest
+pixel and one pixel on either side to estimate the curvature of the line
+profile near maximum.
 
-The fundamental idea upon which this method is built is that we can fit a
-quadratic model to the intensity values surrounding the maximum pixel and
-analytically maximize that function to find the velocity estimate.
-Following \citet{Vakili:2016}, we find the pixel of maximum intensity in the
-spectrum and extract that pixel value $f_0$ and the one to the left $f_-$ and
-right $f_+$.
-Modeling these three intensities as a quadratic
+The procedure is as follows:
+\begin{enumerate}
+
+{\item We find the pixel of maximum intensity in the spectrum and extract that
+pixel value $I_0$ and the one to the left $I_-$ and right $I_+$.}
+
+{\item We model these three intensities as a quadratic function
 \begin{eqnarray}
-f(x) &=& a_0 + a_1\,(x-x_0) + a_2\,{(x-x_0)}^2
+I(x) &=& a_0 + a_1\,(x-x_0) + a_2\,{(x-x_0)}^2
 \eqlabel{quad}
 \end{eqnarray}
 where $x_0$ is the pixel coordinate of maximum intensity and $x$ is in units
-of pixels, we find
+of pixels.
+Given the intensities in the three target pixels, we find
 \begin{eqnarray}
-a_0 &=& f_0 \\
-a_1 &=& \frac{1}{2}(f_+ - f_-) \\
-a_2 &=& \frac{1}{2}(f_+ + f_- - 2\,f_0) \quad.
+a_0 &=& I_0 \\
+a_1 &=& \frac{1}{2}(I_+ - I_-) \\
+a_2 &=& \frac{1}{2}(I_+ + I_- - 2\,I_0) \quad.
 \end{eqnarray}
-By maximizing \Eq{quad}, we find the following estimate for the pixel
-coordinate of maximum velocity:
+}
+
+{\item The maximum of \Eq{quad} is at
 \begin{eqnarray}
-x_\mathrm{max} &=& x_0 - \frac{a_1}{2\,a_2} \\
-    &=& x_0 - \frac{f_+ - f_-}{2\,(f_+ + f_- - 2\,f_0)} \quad.
+x = x_\mathrm{max} &=& x_0 - \frac{a_1}{2\,a_2} \\
+    &=& x_0 - \frac{f_+ - f_-}{2\,(f_+ + f_- - 2\,f_0)} \quad,
 \end{eqnarray}
+and this is our estimate for the centroid of the line in pixel coordinates.
+}
+
+\end{enumerate}
 
 We can also estimate the statistical uncertainty on $x_\mathrm{max}$ by
-propagating the uncertainty from the fluxes to uncertainties on the polynomial
-coefficients.
-If we assume independent Gaussian uncertainties on the fluxes with standard
-deviation $\sigma$, the covariance matrix for the polynomial coefficients
-$\bvec{a} = {(a_2,\,a_1,\,a_0)}^\T$ is
+linearizing and propagating the uncertainty from the fluxes to the centroid
+estimate.
+If we assume that the intensity uncertainties are normal, independent, and
+homoskedastic with standard deviation $\sigma$\footnote{The code released
+alongside this note includes an implementation and proof of more general noise
+models at \url{https://github.com/richteague/bettermoments}.}, we find the
+following approximation for the statistical uncertainty on $x_\mathrm{max}$
 \begin{eqnarray}
-\Sigma_\bvec{a} = \sigma^2\,\left(\begin{array}{ccc}
-\frac{3}{2} \quad & \quad 0 \quad &\quad 1 \\
-0\quad &\quad \frac{1}{2}\quad &\quad 0 \\
--1\quad &\quad 0\quad &\quad 1
-\end{array}\right)\quad.
-\end{eqnarray}
-Using these values and linearized propagation of uncertainty, we find the
-following approximation for the \emph{statistical} uncertainty on
-$x_\mathrm{max}$
-\begin{eqnarray}
-{\sigma_{x_\mathrm{max}}}^2 = \frac{\sigma^2}{8}\,\left[
+{\sigma_{x_\mathrm{max}}}^2 = \frac{\sigma^2}{8}\,\left(
     \frac{3}{{a_2}^2} + \frac{{a_1}^2}{{a_2}^4}
-\right]\quad.
+\right)\quad.
 \end{eqnarray}
-We emphasize that there are other sources of systematic uncertainty that must
-be considered in production.
+We emphasize that this only includes the statistical uncertainty and any
+application of this method to real data will also require a treatment of
+systematic uncertainties.
 
 \section{Demonstration of Method}
 
