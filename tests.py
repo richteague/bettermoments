@@ -60,6 +60,18 @@ def test_shapes(mock_data):
         old_axis = axis
 
 
+def test_shape_error(mock_data):
+    velax, data, vproj = mock_data
+    sigma = np.random.rand(*data.shape)
+
+    with pytest.raises(ValueError):
+        bm.quadratic(data, sigma[1:])
+    with pytest.raises(ValueError):
+        bm.quadratic(data, sigma[:, 1:])
+    with pytest.raises(ValueError):
+        bm.quadratic(data, sigma[:, :, 1:])
+
+
 def test_constant_uncertainties(mock_data):
     velax, data, vproj = mock_data
     sig1 = 1.0
