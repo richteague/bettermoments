@@ -41,10 +41,12 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
 
     """
     # Cast the data to a numpy array
-    data = np.atleast_1d(data)
+    data = np.moveaxis(np.atleast_1d(data), axis, 0)
+    shape = data.shape[1:]
+    data = np.reshape(data, (len(data), -1))
 
     # Find the maximum velocity pixel in each spatial pixel
-    idx = np.argmax(data, axis=axis)
+    idx = np.argmax(data, axis=0)
 
     # Deal with edge effects by keeping track of which pixels are right on the
     # edge of the range
@@ -55,9 +57,9 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
     # Extract the maximum and neighboring pixels
     get_slice = lambda delta: tuple(range(s) if i != axis else idx + delta  # NOQA
                                     for i, s in enumerate(data.shape))
-    f_minus = data[get_slice(-1)]
-    f_max = data[get_slice(0)]
-    f_plus = data[get_slice(1)]
+    f_minus = data[(idx-1, range(data.shape[1]))]
+    f_max = data[(idx, range(data.shape[1]))]
+    f_plus = data[(idx+1, range(data.shape[1]))]
 
     # Work out the polynomial coefficients
     a0 = f_max
@@ -69,12 +71,11 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
     y_max = a0 - 0.25 * a1**2 / a2
 
     # Set sensible defaults for the edge cases
-    '''
     if len(data.shape) > 1:
         x_max[idx_bottom] = 0
         x_max[idx_top] = len(data) - 1
-        y_max[idx_bottom] = f_minus
-        y_max[idx_bottom] = f_plus
+        y_max[idx_bottom] = f_minus[idx_bottom]
+        y_max[idx_top] = f_plus[idx_top]
     else:
         if idx_bottom:
             x_max = 0
@@ -82,11 +83,12 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
         elif idx_top:
             x_max = len(data) - 1
             y_max = f_plus
-    '''
 
     # If no uncertainty was provided, end now
     if uncertainty is None:
-        return x0 + dx * x_max, None, y_max, None
+        return (
+            np.reshape(x0 + dx * x_max, shape), None,
+            np.reshape(y_max, shape), None)
 
     # Compute the uncertainty
     try:
@@ -94,14 +96,16 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
 
     except TypeError:
         # An array of errors was provided
-        uncertainty = np.atleast_1d(uncertainty)
-        if data.shape != uncertainty.shape:
+        uncertainty = np.moveaxis(np.atleast_1d(uncertainty), axis, 0)
+        if uncertainty.shape[0] != data.shape[0] or \
+                shape != uncertainty.shape[1:]:
             raise ValueError("the data and uncertainty must have the same "
                              "shape")
+        uncertainty = np.reshape(uncertainty, (len(uncertainty), -1))
 
-        df_minus = uncertainty[get_slice(-1)]**2
-        df_max = uncertainty[get_slice(0)]**2
-        df_plus = uncertainty[get_slice(1)]**2
+        df_minus = uncertainty[(idx-1, range(uncertainty.shape[1]))]**2
+        df_max = uncertainty[(idx, range(uncertainty.shape[1]))]**2
+        df_plus = uncertainty[(idx+1, range(uncertainty.shape[1]))]**2
 
         x_max_var = 0.0625*(a1**2*(df_minus + df_plus) +
                             a1*a2*(df_minus - df_plus) +
@@ -112,12 +116,19 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
                               4.0*a1**2*a2**2*(df_minus + df_plus) +
                               64.0*a2**4*df_max)/a2**4
 
-        return (x0 + dx * x_max, dx * np.sqrt(x_max_var),
-                y_max, np.sqrt(y_max_var))
+        return (
+            np.reshape(x0 + dx * x_max, shape),
+            np.reshape(dx * np.sqrt(x_max_var), shape),
+            np.reshape(y_max, shape),
+            np.reshape(np.sqrt(y_max_var), shape))
 
     else:
         # The uncertainty is a scalar
         x_max_sig = uncertainty*np.sqrt(0.125*a1**2 + 0.375*a2**2)/a2**2
         y_max_sig = uncertainty*np.sqrt(0.03125*a1**4 + 0.125*a1**2*a2**2 +
                                         a2**4)/a2**2
-        return x0 + dx * x_max, dx * x_max_sig, y_max, y_max_sig
+        return (
+            np.reshape(x0 + dx * x_max, shape),
+            np.reshape(dx * x_max_sig, shape),
+            np.reshape(y_max, shape),
+            np.reshape(y_max_sig, shape))
