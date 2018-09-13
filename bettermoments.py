@@ -69,6 +69,7 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
     y_max = a0 - 0.25 * a1**2 / a2
 
     # Set sensible defaults for the edge cases
+    '''
     if len(data.shape) > 1:
         x_max[idx_bottom] = 0
         x_max[idx_top] = len(data) - 1
@@ -81,6 +82,7 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
         elif idx_top:
             x_max = len(data) - 1
             y_max = f_plus
+    '''
 
     # If no uncertainty was provided, end now
     if uncertainty is None:
