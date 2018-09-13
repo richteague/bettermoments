@@ -1,8 +1,6 @@
 # bettermoments
 
-**A robust method for inferring line-of-sight velocities from Doppler shifted spectra.**
-
-Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you do that.
+Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
 
 ## Approach
 
