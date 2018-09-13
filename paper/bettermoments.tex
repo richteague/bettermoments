@@ -182,20 +182,43 @@ systematic uncertainties.
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figure.pdf}
-\caption{Top row: Comparisons of methods used to infer the velocity profile and their associated accuracy and precision on simulated data. The left panel shows a Gaussian fit to the data in green and the quadratic fit to the peak pixel in blue, while vertical lines show the velocity inferred using the first (with no clipping and $3\sigma$ clipping in purple and red, respectively) and ninth moment (orange) approaches. The right hand panel compares the error in the method with the associated statistical uncertainty. Bottom row: Application of the three methods to observations of HD~135344B. \label{figure}}
+\caption{%
+Top row: Comparisons of different line centroid methods applied to simulated
+data.
+Left: A Gaussian fit to the data is shown in green and the quadratic fit to
+the peak pixels is in blue.
+Vertical ticks show the velocity inferred using the other approaches with the
+same colors as in the right panel.
+Right: The difference between the inferred centroid and the truth for the
+methods listed along the x-axis.
+The error bars indicate the statistical uncertainty of each method.
+Bottom row: Application of the three methods to observations of HD~135344B.
+\label{figure}}
 \end{figure}
 
-The top row of Figure~\ref{figure} compares different methods for the case of an asymmetric line profile, modeled as the sum of two Gaussian components.
-Both the first moment and Gaussian fit results are biases by the asymmetry of the line, shifting $v_{\rm LOS}$ to higher velocities.
-Although the `ninth moment' avoids this bias, the precision of $v_{\rm LOS}$ is limited by the velocity resolution of the data, unlike the quadratic approach.
-However, we see that the the statistical uncertainties for the quadratic approach do underestimate the true uncertainty and thus other sources of uncertainty must also be considered.
+The top row of Figure~\ref{figure} compares different methods for estimating
+a line centroid the case of an asymmetric line profile, modeled as the sum of
+two Gaussian components.
+Both the first moment and Gaussian fit results are biased by the asymmetry of
+the line.
+Although the `ninth moment' avoids this bias, its precision is limited by the
+velocity resolution of the data.
 
-The bottom row shows velocity maps of $^{13}$CO from the protoplanetary disk, HD~135344B \citep[ALMA Project 2012.1.00158.S]{vanderMarel:2016}, imaged at a velocity resolution of $330~{\rm ms\,s^{-1}}$.
-With a $2\sigma$ clip applied to the data, a `first moment' approach results in a noisy map, making it hard to distinguish real structures from noise.
-As with the asymmetric spectrum, the `ninth moment' is less affected by the noise but the resulting map loses fidelity due to the coarse velocity resolution of the data.
-The quadratic approach does not suffer from noise features while maintaining a high precision on the inferred velocity with a statistical uncertainty of $47~{\rm m\,s^{-1}}$, or 15\% of the velocity resolution.
+The bottom row shows velocity maps of $^{13}$CO from the protoplanetary disk,
+HD~135344B \citep[ALMA Project 2012.1.00158.S]{vanderMarel:2016}, imaged at a
+velocity resolution of $330~{\rm ms\,s^{-1}}$.
+With a $2\sigma$ clip applied to the data, a `first moment' approach results
+in a noisy map, making it hard to distinguish real structures from noise.
+As with the asymmetric spectrum, the `ninth moment' is less affected by the
+noise but the resulting map loses fidelity due to the coarse velocity
+resolution of the data.
+The quadratic approach does not suffer from noise features while maintaining a
+high precision on the inferred velocity with a statistical uncertainty of
+$47~{\rm m\,s^{-1}}$, or 15\% of the velocity resolution.
 
-The code used to generate this figure and an open source implementation of this method is available at the \href{https://github.com/richteague/bettermoments}{richteague/bettermoments} repository on GitHub.
+The code used to generate this Figure and an open source implementation of
+this method is available at
+\url{https://github.com/richteague/bettermoments}.
 
 \bibliography{bettermoments}
 
