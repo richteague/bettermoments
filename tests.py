@@ -13,7 +13,7 @@ import bettermoments as bm
 
 @pytest.fixture
 def mock_data(Nchan=64, Npix=128):
-    axis, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix, Tkin0=150)
+    axis, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix)
     data = data[:, :-1, :]
     vproj = vproj[:-1, :]
     assert data.shape == (Nchan+1, Npix-1, Npix)
@@ -211,7 +211,7 @@ def disk_model(inc=30., mstar=1.0, dist=100., Npix=128, r_max=150., vchan=200.,
     size = 1.5 * r_max / dist
     xgrid = np.linspace(-size, size, Npix)
     ygrid = np.linspace(-size, size, Npix) / np.cos(np.radians(inc))
-    velax = vchan * np.arange(-Nchan * 0.5, Nchan * 0.5 + 1)
+    velax = vchan * np.arange(-Nchan * 5, Nchan * 5 + 1)
 
     # Calculate disk midplane coordinates in [au].
     rpnts = np.hypot(ygrid[:, None], xgrid[None, :])
@@ -224,11 +224,13 @@ def disk_model(inc=30., mstar=1.0, dist=100., Npix=128, r_max=150., vchan=200.,
     # Temperature and linewidth as a powerlaw in [K] and [m/s].
     Tkin = Tkin0 * (rpnts * dist / 100.)**Tkinq
     dV = thermal_width(Tkin, mu=mu)
-    dV = np.hypot(dV, vchan)
 
     # Build the cube and add noise if requested.
     data = gaussian(velax[:, None, None], vproj[None, :, :],
                     Tkin[None, :, :], dV[None, :, :])
+    velax = vchan * np.arange(-Nchan * 0.5, Nchan * 0.5 + 1.)
+    data = np.array([np.average(data[c*10:(c+1)*10], axis=0)
+                     for c in range(len(velax))])
     data = np.where(rpnts[None, :, :] > r_max / dist, 0.0, data)
 
     if noise is not None:
