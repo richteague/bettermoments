@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+__all__ = ["disk_model"]
+
 import numpy as np
 import scipy.constants as sc
 from astropy.convolution import convolve_fft
@@ -6,36 +10,35 @@ from astropy.convolution import Gaussian2DKernel
 
 def disk_model(inc=30., mstar=1.0, dist=100., Npix=128, r_max=150., vchan=200.,
                Nchan=64, noise=2.0, Tkin0=40., Tkinq=-0.3, mu=28., beam=None):
-    """
-    Build an analytical, geometrically thin disk model. The temperature
+    """Build an analytical, geometrically thin disk model. The temperature
     profile is a power-law function, Tkin(r) = Tkin0 * (r / 100au)^Tkinq,
     and is used to calculate the linewidth assuming no non-thermal broadening.
     The rotation profile is purely Keplerian around a point source.
 
-    - Input -
+    Args:
+        inc (float): Inclination of disk in [degrees].
+        mstar (float): Mass of central star in [Msun].
+        dist (float): Distance to source in [pc].
+        Npix (int): Number of pixels for the spatial dimension.
+        vchan (float): Width of a velocity channel in [m/s].
+        Nchan (int): Number of velocity channels.
+        r_max (float): Outer radius of the disk in [au].
+        noise (float): Random noise to add the the data in [K]. Note that if
+            the cube is convolved, the resulting noise is much less than
+            requested.
+        Tkin0 (float): Kinetic temperature at 100au.
+        Tkinq (float): Gradient of the temperature power-law profile.
+        mu (float): Molecular weight of the molecule used for calculating the
+            thermal linewidth.
+        beam (float): If specified, the FWHM of a circular Gaussian beam to
+            convolve the data with.
 
-    inc:        Inclination of disk in [degrees].
-    mstar:      Mass of central star in [Msun].
-    dist:       Distance to source in [pc].
-    Npix:       Number of pixels in (x, y).
-    r_max:      Outer radius of the disk in [au].
-    vchan:      Width of a velocity channel.
-    Nchan:      Number of velocity channels.
-    noise:      Random noise to add the the data in [K]. Note that if the cube
-                is convolved, the resulting noise is much less than requested.
-    Tkin0:      Kinetic temperature at 100au.
-    Tkinq:      Gradient of the temperature power-law profile.
-    mu:         Molecular weight of the molecule used for calculating the
-                thermal linewidth.
-    beam:       If specified, the FWHM of a circular Gaussian beam to convolve
-                the data with.
+    Returns:
+        axis (ndarray): Spatial axis in [arcsec].
+        velax (ndarray): Velocity axis in [m/s].
+        data (ndarray): Data cube in [K].
+        vproj (ndarray): True projected rotation profile [m/s].
 
-    - Output -
-
-    axis:       Spatial axis in [arcsec].
-    velax:      Velocity axis in [m/s].
-    data:       Data cube in [K].
-    vproj:      True projected rotation profile [m/s].
     """
 
     # Create the axes of the observations. (x, y) in [arcsec], (v) in [km/s].
