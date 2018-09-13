@@ -82,7 +82,7 @@ A robust method to measure velocity line-of-sight velocity from spectra
 
 \section{Background}
 
-Inferring the line-of-sight velocity from Doppler shifted spectra is a frequently used analysis in astronomy. Multiple approaches for collapsing a data cube to a single velocity at each pixel are present in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are the intensity weighted average velocity, `first moment' maps, or the velocity of the maximum intensity, called the `ninth moment'\footnote{Although a minomer as it does not relate to a statistical moment, we adopt this terminology for this note.} when calculated using \texttt{CASA} \citep{McMullin:2007}. 
+Inferring the line-of-sight velocity from Doppler shifted spectra is a frequently used analysis in astronomy. Multiple approaches for collapsing a data cube to a single velocity at each pixel are present in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are the intensity weighted average velocity, `first moment' maps, or the velocity of the maximum intensity, called the `ninth moment'\footnote{Although a minomer as it does not relate to a statistical moment, we adopt this terminology for this note.} when calculated using \texttt{CASA} \citep{McMullin:2007}.
 
 The first moment approach is strongly affected by the noise in the spectrum and any asymmetry in the line profile. Clipping the data below some signal-to-noise value or masking the data based on some assumed model are typically used to circumvent these issues, however such strong assumptions about the emission morphology can result in introducing (or removing) features in the resulting velocity map. Ninth moment maps avoid this issue by considering only a single pixel, however the precision of this approach is limited by the velocity resolution of the data.
 
@@ -155,8 +155,7 @@ be considered in production.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{../notebooks/simulated-spectrum.pdf}
-\includegraphics[width=\textwidth]{../notebooks/moment_comparison.pdf}
+\includegraphics[width=\textwidth]{figure.pdf}
 \caption{Top row: Comparisons of methods used to infer the velocity profile and their associated accuracy and precision on simulated data. The left panel shows a Gaussian fit to the data in green and the quadratic fit to the peak pixel in blue, while vertical lines show the velocity inferred using the first (with no clipping and $3\sigma$ clipping in purple and red, respectively) and ninth moment (orange) approaches. The right hand panel compares the error in the method with the associated statistical uncertainty. Bottom row: Application of the three methods to observations of HD~135344B. \label{figure}}
 \end{figure}
 
