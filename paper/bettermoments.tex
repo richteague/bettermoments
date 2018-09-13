@@ -66,7 +66,7 @@
 \begin{document}\raggedbottom\sloppy\sloppypar\frenchspacing
 
 \title{%
-A robust method to measure velocity line-of-sight velocity from spectra
+A robust method to measure centroids of spectral lines
 }
 
 \author[0000-0003-1534-5186]{Richard Teague}
@@ -81,6 +81,13 @@ A robust method to measure velocity line-of-sight velocity from spectra
 %}
 
 \section{Background}
+
+When analyzing data cubes produced by interferometers or integral field units,
+astronomers frequently aim to produce a map of velocity as a function of pixel
+coordinate or time.
+In some cases, the spectral dimension is dominated by a single line and the
+operation of inferring a velocity is simplified to a question of determining
+the centroid of the line.
 
 Inferring the line-of-sight velocity from Doppler shifted spectra is a frequently used analysis in astronomy. Multiple approaches for collapsing a data cube to a single velocity at each pixel are present in the literature \citep[see, for example][]{deBlok:2008}, however the two most common approaches are the intensity weighted average velocity, `first moment' maps, or the velocity of the maximum intensity, called the `ninth moment'\footnote{Although a misnomer as it does not relate to a statistical moment, we adopt this terminology for this note.} when calculated using \texttt{CASA} \citep{McMullin:2007}. When the emission is believed to have only a single line component, these methods do not offer the accuracy and precision required to extend studies to small scale structures.
 
