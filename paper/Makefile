@@ -6,11 +6,14 @@ RM_TMP      = $(foreach d, ${TEX_FILES}, rm -rf $(foreach suff, ${TMP_SUFFS}, ${
 # You shouldn't need to edit below here.
 default: bettermoments.pdf
 
-bettermoments.pdf: bettermoments.tex
+bettermoments.pdf: bettermoments.tex bettermoments.bib figure.pdf
 	pdflatex bettermoments
 	bibtex bettermoments
 	pdflatex bettermoments
 	pdflatex bettermoments
+
+figure.pdf: figure.tex ../notebooks/*.pdf
+	pdflatex figure.tex
 
 clean:
 	$(RM_TMP)
