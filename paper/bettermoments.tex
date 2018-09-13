@@ -164,6 +164,8 @@ Figure~\ref{figure} compares the method to typical methods for a simulated, asym
 
 As a demonstration with real data, we image Atacama Large (sub-)Millimeter Array observations of $^{13}$CO in the well studied protoplanetary disk HD~135344B at a velocity resolution of $330~{\rm m\,s^{-1}}$ \citep[ALMA Project 2012.1.00158.S]{vanderMarel:2016} . The bottom row of Fig.~\ref{figure} compares the inferred line-of-sight velocity using, left to right, the intensity weighted average (first moment map), clipping all values below $3\sigma$, the velocity of the maximum intensity, and finally the quadratic approach described in the previous section. Clearly the first moment approach suffers from noise features which are dependent on the level of clipping applied. The ninth moment is not affected by such features, however is limited in precision by the observations. The quadratic approach does not suffer from noise features while maintaining a high precision on the inferred velocity with a statistical uncertainty of $47~{\rm m\,s^{-1}}$, or 15\% of the velocity resolution.
 
+The code used to generate this figure and an open source implementation of this method is available at the \href{https://github.com/richteague/bettermoments}{richteague/bettermoments} repository on GitHub.
+
 \bibliography{bettermoments}
 
 
