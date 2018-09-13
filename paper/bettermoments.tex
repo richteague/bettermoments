@@ -93,22 +93,30 @@ example][]{deBlok:2008}, however the most common are the ``intensity weighted
 average velocity'' (also known as the ``first moment'' method) and the
 velocity of the maximum intensity, called the ``ninth moment''\footnote{We
 emphasize that this is a misnomer as it does not relate to any statistical
-moment.}, as they are implemented as part of \texttt{CASA}
-\citep{McMullin:2007}.
-When the emission is believed to have only a single line component, these
-methods do not offer the accuracy nor precision required to extend studies to
-small scale structures.
+moment.}, as they are implemented by \texttt{CASA} \citep{McMullin:2007}.
+Even when the emission is dominated by a single line component, these methods
+do not offer the accuracy or precision required to extend studies to small
+scale structures.
 
 The first moment approach is strongly affected by the noise in the spectrum and any asymmetry in the line profile.
-Clipping the data below some signal-to-noise value or masking the data based on some assumed model are typically used to circumvent these issues, however such strong assumptions about the emission morphology can result in introducing (or removing) features in the resulting velocity map.
-Ninth moment maps avoid this issue by considering only a single pixel, however the precision of this approach is limited by the velocity resolution of the data.
+Sigma clipping is typically used to circumvent these issues, but this can
+result in the addition of spurious features or the masking of astrophysically
+interesting features in the resulting velocity map.
+Ninth moment maps are more robust to these issues, however the precision of
+this approach is limited by the velocity resolution of the data.
 
-Other approaches involve fitting a line profile to the data.
-In addition to be computationally expensive, this approach implicitly assumes that the true line profile is known, but deviations from this model profile can often lead to incorrect inferences.
-For example, spatially resolved protoplanetary disks have been be shown to have a double-Gaussian component as emission is observed from both the front and far side of the disk \citep{Rosenfeld:2013}.
-The line centre for a single Gaussian component will therefore be offset to account for this double component.
+Other approaches involve fitting a model line profile (e.g.~a Gaussian) to the
+data, but these methods are both more computationally expensive and more
+sensitive to the details of the line shape.
+For example, spatially resolved protoplanetary disks have been be shown to
+have a double-Gaussian component as emission is observed from both the front
+and far side of the disk \citep{Rosenfeld:2013}.
+The line center for a single Gaussian component will therefore be offset to
+account for this double component.
 
-In this research note we demonstrate a new method to infer the line-of-sight velocity component which combines the sub-channel precision from the `first moment' map method and the model independence of the `ninth moment' approach.
+In this note we present a new method for inferring line centroids that is
+simple, computationally efficient, and robust to noise and errors in line
+shape.
 
 \section{Technical details}
 
