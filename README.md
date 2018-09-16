@@ -1,5 +1,7 @@
 # bettermoments
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1419754.svg)](https://doi.org/10.5281/zenodo.1419754)
+
 Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
 
 ## Approach
