@@ -15,7 +15,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 setup(
     name="bettermoments",
-    version="0.0.3",
+    version="1.0.0",
     author="Richard Teague & Daniel Foreman-Mackey",
     py_modules=["bettermoments"],
     url="https://github.com/richteague/bettermoments",
