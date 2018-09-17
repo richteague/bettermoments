@@ -21,7 +21,7 @@ Then you can execute this module using
 ```python
 import bettermoments as bm
 
-x_max, x_max_sigma, y_max, y_max_sigma = pm.quadratic(data, uncertainties)
+x_max, x_max_sigma, y_max, y_max_sigma = bm.quadratic(data, uncertainties)
 ```
 
 See the docstring for the `bettermoments.quadratic` function for more
