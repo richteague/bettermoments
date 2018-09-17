@@ -1,5 +1,7 @@
 # bettermoments
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1419754.svg)](https://doi.org/10.5281/zenodo.1419754)
+
 Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
 
 ## Approach
@@ -19,7 +21,7 @@ Then you can execute this module using
 ```python
 import bettermoments as bm
 
-x_max, x_max_sigma, y_max, y_max_sigma = pm.quadratic(data, uncertainties)
+x_max, x_max_sigma, y_max, y_max_sigma = bm.quadratic(data, uncertainties)
 ```
 
 See the docstring for the `bettermoments.quadratic` function for more
