@@ -15,7 +15,7 @@ We note that there are alternative implemenations of this method available, such
 To start, install the `bettermoments` package by executing
 
 ```bash
-pip install bettermoments
+pip install --user .
 ```
 
 Then you can execute this module using
