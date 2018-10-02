@@ -6,8 +6,13 @@ __all__ = ["quadratic"]
 
 import numpy as np
 
+try:
+    from scipy.ndimage.filters import gaussian_filter1d, _gaussian_kernel1d
+except ImportError:
+    gaussian_filter1d = None
 
-def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
+
+def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
     """Compute the quadratic estimate of the centroid of a line in a data cube
 
     The use case that we expect is a data cube with spatiotemporal coordinates
@@ -47,6 +52,13 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
 
     # Find the maximum velocity pixel in each spatial pixel
     idx = np.argmax(data, axis=0)
+
+    # Smooth the data if asked
+    truncate = 4.0
+    if linewidth is not None:
+        if gaussian_filter1d is None:
+            raise ImportError("scipy is required for smoothing")
+        data = gaussian_filter1d(data, linewidth, axis=0, truncate=truncate)
 
     # Deal with edge effects by keeping track of which pixels are right on the
     # edge of the range
@@ -92,9 +104,10 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
 
     # Compute the uncertainty
     try:
-        uncertainty = float(uncertainty)
+        uncertainty = float(uncertainty) + np.zeros_like(data)
 
     except TypeError:
+
         # An array of errors was provided
         uncertainty = np.moveaxis(np.atleast_1d(uncertainty), axis, 0)
         if uncertainty.shape[0] != data.shape[0] or \
@@ -103,32 +116,36 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0):
                              "shape")
         uncertainty = np.reshape(uncertainty, (len(uncertainty), -1))
 
-        df_minus = uncertainty[(idx-1, range(uncertainty.shape[1]))]**2
-        df_max = uncertainty[(idx, range(uncertainty.shape[1]))]**2
-        df_plus = uncertainty[(idx+1, range(uncertainty.shape[1]))]**2
+    # Update the uncertainties for the smoothed data:
+    #  sigma_smooth = sqrt(norm * k**2 x sigma_n**2)
+    if linewidth is not None:
+        # The updated uncertainties need to be updated by convolving with the
+        # square of the kernel with which the data were smoothed. Then, this
+        # needs to be properly normalized. See the scipy source for the
+        # details of this normalization:
+        # https://github.com/scipy/scipy/blob/master/scipy/ndimage/filters.py
+        sigma = linewidth / np.sqrt(2)
+        lw = int(truncate * linewidth + 0.5)
+        norm = np.sum(_gaussian_kernel1d(linewidth, 0, lw)**2)
+        norm /= np.sum(_gaussian_kernel1d(sigma, 0, lw))
+        uncertainty = np.sqrt(norm * gaussian_filter1d(
+            uncertainty**2, sigma, axis=0))
 
-        x_max_var = 0.0625*(a1**2*(df_minus + df_plus) +
-                            a1*a2*(df_minus - df_plus) +
-                            a2**2*(4.0*df_max + df_minus + df_plus))/a2**4
+    df_minus = uncertainty[(idx-1, range(uncertainty.shape[1]))]**2
+    df_max = uncertainty[(idx, range(uncertainty.shape[1]))]**2
+    df_plus = uncertainty[(idx+1, range(uncertainty.shape[1]))]**2
 
-        y_max_var = 0.015625*(a1**4*(df_minus + df_plus) +
-                              2.0*a1**3*a2*(df_minus - df_plus) +
-                              4.0*a1**2*a2**2*(df_minus + df_plus) +
-                              64.0*a2**4*df_max)/a2**4
+    x_max_var = 0.0625*(a1**2*(df_minus + df_plus) +
+                        a1*a2*(df_minus - df_plus) +
+                        a2**2*(4.0*df_max + df_minus + df_plus))/a2**4
 
-        return (
-            np.reshape(x0 + dx * x_max, shape),
-            np.reshape(dx * np.sqrt(x_max_var), shape),
-            np.reshape(y_max, shape),
-            np.reshape(np.sqrt(y_max_var), shape))
+    y_max_var = 0.015625*(a1**4*(df_minus + df_plus) +
+                          2.0*a1**3*a2*(df_minus - df_plus) +
+                          4.0*a1**2*a2**2*(df_minus + df_plus) +
+                          64.0*a2**4*df_max)/a2**4
 
-    else:
-        # The uncertainty is a scalar
-        x_max_sig = uncertainty*np.sqrt(0.125*a1**2 + 0.375*a2**2)/a2**2
-        y_max_sig = uncertainty*np.sqrt(0.03125*a1**4 + 0.125*a1**2*a2**2 +
-                                        a2**4)/a2**2
-        return (
-            np.reshape(x0 + dx * x_max, shape),
-            np.reshape(dx * x_max_sig, shape),
-            np.reshape(y_max, shape),
-            np.reshape(y_max_sig, shape))
+    return (
+        np.reshape(x0 + dx * x_max, shape),
+        np.reshape(dx * np.sqrt(x_max_var), shape),
+        np.reshape(y_max, shape),
+        np.reshape(np.sqrt(y_max_var), shape))
