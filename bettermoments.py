@@ -21,6 +21,11 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
     function estimates the centroid of the *brightest* line along the ``axis''
     dimension, in each spatiotemporal pixel.
 
+    Following Vakili & Hogg we allow for the option for the data to be smoothed
+    prior to the parabolic fitting. The recommended kernel is a Gaussian of
+    comparable width to the line. However, for low noise data, this is not
+    always necessary.
+
     Args:
         data (ndarray): The data cube as an array with at least one dimension.
         uncertainty (Optional[ndarray or float]): The uncertainty on the
