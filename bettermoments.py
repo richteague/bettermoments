@@ -34,6 +34,8 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
         x0 (Optional[float]): The wavelength/frequency/velocity/etc. value for
             the zeroth pixel in the ``axis'' dimension.
         dx (Optional[float]): The pixel scale of the ``axis'' dimension.
+        linewidth (Optional [float]): Estimated standard deviation of the line
+            in units of pixels.
 
     Returns:
         x_max (ndarray): The centroid of the brightest line along the ``axis''
