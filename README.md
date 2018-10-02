@@ -15,6 +15,12 @@ We note that there are alternative implemenations of this method available, such
 To start, install the `bettermoments` package by executing
 
 ```bash
+pip install bettermoments
+```
+
+or if you have cloned the repository then you can change into the directory and run
+
+```bash
 pip install --user .
 ```
 
