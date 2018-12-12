@@ -2,7 +2,7 @@
 
 from __future__ import division, print_function
 
-__all__ = ["quadratic", "data_from_fits"]
+__all__ = ["quadratic"]
 
 import numpy as np
 
@@ -74,8 +74,6 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
     idx = np.clip(idx, 1, len(data)-2)
 
     # Extract the maximum and neighboring pixels
-    get_slice = lambda delta: tuple(range(s) if i != axis else idx + delta  # NOQA
-                                    for i, s in enumerate(data.shape))
     f_minus = data[(idx-1, range(data.shape[1]))]
     f_max = data[(idx, range(data.shape[1]))]
     f_plus = data[(idx+1, range(data.shape[1]))]
@@ -157,43 +155,3 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
         np.reshape(dx * np.sqrt(x_max_var), shape),
         np.reshape(y_max, shape),
         np.reshape(np.sqrt(y_max_var), shape))
-
-
-def data_from_fits(path, nchan=None):
-    """Convenience function to return the data and velocity axis from a FITS
-    file in order to pass to quadratic.
-
-    Args:
-        path (str): path to the FITS file.
-        nchan (Optional[int]): number of channels at the start and at the end
-            of the cube used to estimate the uncertainty. If not specified, no
-            uncertainty will be estimated.
-
-    Returns:
-        data (ndarry): The data cube.
-        v0 (float): The wavelength/frequency/velocity/etc. value for the zeroth
-            pixel in the velocity / frequency dimension.
-        dv (float): The pixel scale of the velocity / frequency axis.
-        dx (float): The pixel scale of the spatial axis in arcseconds.
-        uncertainty (float or None): The uncertainty on the intensities given
-            by ``data``. Assumed to be homogeneous across the dataset.
-
-    """
-    from astropy.io import fits
-
-    data = fits.getdata(path)
-    header = fits.getheader(path)
-
-    # Calculate the spectral axis.
-    dv = header['cdelt3']
-    v0 = header['crval3'] + (1.0 - header['crpix3']) * dv
-    dx = header['cdelt2'] * 3600.
-
-    # If no nchan is given, return now.
-    if nchan is None:
-        return (data, v0, dv, dx, None)
-
-    # Estimate the noise in the image.
-    nchan = int(nchan)
-    uncertainty = np.nanstd([data[:nchan], data[-nchan:]])
-    return (data, v0, dv, dx, uncertainty)
