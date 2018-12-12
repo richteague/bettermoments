@@ -120,7 +120,7 @@ def collapse_first(velax, data, clip=None, rms=None, N=5, mask=None):
 
     # Apply the SNR clipping.
     if clip is not None:
-        Fnu, dFnu = collapse_maximum(velax, data, return_peak=True, N=N)[2:]
+        Fnu, dFnu = collapse_maximum(velax, data, N=N)[2:]
         if rms is None:
             rms = _estimate_RMS(data, N=N)
         dFnu = rms * np.ones(Fnu.shape)
@@ -276,11 +276,11 @@ def main():
             print("Masking maps.")
 
         if Fnu is None:
-            signal = collapse_maximum(velax, data, return_peak=True)[2]
+            signal = collapse_maximum(velax, data)[2]
         else:
             signal = Fnu
         if dFnu is None:
-            noise = collapse_maximum(velax, data, return_peak=True)[3]
+            noise = collapse_maximum(velax, data)[3]
         else:
             noise = dFnu
 
