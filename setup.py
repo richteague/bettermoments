@@ -3,7 +3,7 @@
 
 import os
 import sys
-from setuptools import setup
+from distutils.core import setup
 
 if sys.argv[-1] == "publish":
     os.system("python setup.py sdist upload")
@@ -17,14 +17,14 @@ setup(
     name="bettermoments",
     version="1.0.0",
     author="Richard Teague & Daniel Foreman-Mackey",
-    py_modules=["bettermoments"],
+    author_email='rteague@umich.edu',
+    packages=['bettermoments', 'bettermoments.tests'],
     url="https://github.com/richteague/bettermoments",
-    license="MIT",
-    description=("A robust method for inferring line-of-sight velocities from "
-                 "Doppler shifted spectra"),
+    license="LICENSE.md",
+    description=("Robust moment map making."),
     long_description=long_description,
     long_description_content_type="text/markdown",
-    install_requires=["numpy"],
+    install_requires=["numpy", "astropy", "argparse"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -34,4 +34,9 @@ setup(
         "Programming Language :: Python",
     ],
     zip_safe=True,
+    entry_points={
+        'console_scripts': [
+            'bettermoments = bettermoments.collapse_cube:main',
+        ],
+    }
 )

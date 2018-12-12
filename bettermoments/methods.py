@@ -107,7 +107,8 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
     if uncertainty is None:
         return (
             np.reshape(x0 + dx * x_max, shape), None,
-            np.reshape(y_max, shape), None)
+            np.reshape(y_max, shape), None,
+            np.reshape(2. * a2, shape), None)
 
     # Compute the uncertainty
     try:
