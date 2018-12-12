@@ -228,15 +228,15 @@ def main():
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube.')
-    parser.add_argument('-clip', default=5.0,
+    parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
-    parser.add_argument('-fill', default=np.nan,
+    parser.add_argument('-fill', default=np.nan, type=float,
                         help='Fill value for masked pixels.')
-    parser.add_argument('-dV', default=None,
+    parser.add_argument('-dV', default=None, type=float,
                         help='Linewidth used to smooth data.')
-    parser.add_argument('-rms', default=None,
+    parser.add_argument('-rms', default=None, type=float,
                         help='Estimated RMS noise from a line free channel.')
-    parser.add_argument('-N', default=5,
+    parser.add_argument('-N', default=5, type=int,
                         help='Number of end channels to use to estimate RMS.')
     parser.add_argument('--silent', action='store_true',
                         help='Run silently.')
