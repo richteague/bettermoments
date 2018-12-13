@@ -4,7 +4,7 @@
   <img src="https://github.com/richteague/bettermoments/blob/master/docs/TWHya.png" width="435" height="435"><br/>
   Measuring precise line-of-sight velocities from Doppler shifted lines is essential<br/>
   when looking for small scale deviations indicative of, for example, embedded planets.<br/><br/>
-  <b>bettermoments</b> helps you measure such velocities.
+  <font size="7"><b>bettermoments</b> helps you measure such velocities.</font>
 </p>
 
 ## Usage
