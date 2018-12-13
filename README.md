@@ -4,36 +4,28 @@
 
 Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
 
-## Approach
-
-Rather than fitting the full line profile with an analytical expression, we fit a quadratic to the the peak pixel and its two adjacent pixels. For a single component, this has been shown om [Vakili & Hogg (2016)](https://arxiv.org/abs/1610.05873) to provide comparable precision to fitting the full spectrum with the true underlying profile. Thus, in the extremely likely scenario where the underlying profile is not known, this method will out perform more common methods, such as the intensity weighted average. This approach, including the correction to conserve flux, is also extensively discussed in Appendix C of [Courteau (1997)](https://arxiv.org/pdf/astro-ph/9709201.pdf).
-
-We note that there are alternative implemenations of this method available, such as [NEMO](https://github.com/teuben/nemo).
 
 ## Usage
 
-To start, install the `bettermoments` package by executing
+_Work in progress:_ To start, clone the repository then run
 
 ```bash
-pip install bettermoments
+pip install .
 ```
 
-or if you have cloned the repository then you can change into the directory and run
+to install this locally. Then, in the directory of the image cube simply run
 
 ```bash
-pip install --user .
+bettermoments path/to/cube.fits
 ```
 
-Then you can execute this module using
+which will create lovely line peak and line centroid maps (with uncertainties!). These will be saved in the same directory as the original cube.
 
-```python
-import bettermoments as bm
+## Currently Working On
 
-x_max, x_max_sigma, y_max, y_max_sigma = bm.quadratic(data, uncertainties)
-```
+* Correct header information in the saved files.
+* Analytical fits, e.g. Gaussians or Gauss-Hermite expansions.
 
-See the docstring for the `bettermoments.quadratic` function for more
-information on the available options.
 
 ## Attribution
 
