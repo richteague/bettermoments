@@ -4,7 +4,6 @@
 
 Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
 
-
 ## Usage
 
 _Work in progress:_ To start, clone the repository then run
@@ -25,6 +24,7 @@ which will create lovely line peak and line centroid maps (with uncertainties!).
 
 * Correct header information in the saved files.
 * Analytical fits, e.g. Gaussians or Gauss-Hermite expansions.
+* Documentation.
 
 
 ## Attribution
