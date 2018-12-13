@@ -1,15 +1,15 @@
 # bettermoments
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1419754.svg)](https://doi.org/10.5281/zenodo.1419754)
-
 <p align='center'>
-  <img src="https://github.com/richteague/https://github.com/richteague/bettermoments/blob/master/docs/TWHya.png" width="713.2" height="383"><br/>
-  Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
+  <img src="https://github.com/richteague/bettermoments/blob/master/docs/TWHya.png" width="569.0" height="580.3"><br/>
+  Measuring precise line-of-sight velocities from Doppler shifted lines is essential<br/>
+  when looking for small scale deviations indicative of, for example, embedded planets.<br/>
+  <b>bettermoments</b> helps you measure such velocities.
 </p>
 
 ## Usage
 
-_Work in progress:_ To start, clone the repository then run
+To start, clone the repository then run
 
 ```bash
 pip install .
@@ -52,3 +52,4 @@ If you make use of this package in your research, please cite [Teague & Foreman-
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 ```
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1419754.svg)](https://doi.org/10.5281/zenodo.1419754)
