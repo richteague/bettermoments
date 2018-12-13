@@ -224,7 +224,7 @@ def main():
     parser.add_argument('path',
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
-                        help='Method used to collapse cube.')
+                        help='Method used to collapse cube')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,

@@ -18,14 +18,17 @@ to install this locally. Then, in the directory of the image cube simply run
 bettermoments path/to/cube.fits
 ```
 
-which will create lovely line peak and line centroid maps (with uncertainties!). These will be saved in the same directory as the original cube.
+which will create lovely line peak and line centroid maps (with uncertainties!). These will be saved in the same directory as the original cube. For more information on the available functions, use:
+
+```bash
+bettermoments -h
+```
 
 ## Currently Working On
 
 * Correct header information in the saved files.
 * Analytical fits, e.g. Gaussians or Gauss-Hermite expansions.
 * Documentation.
-
 
 ## Attribution
 
