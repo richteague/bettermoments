@@ -2,7 +2,7 @@
 
 from __future__ import division, print_function
 
-__all__ = ["quadratic"]
+__all__ = ["quadratic", "peak_pixel"]
 
 import numpy as np
 
@@ -12,8 +12,96 @@ except ImportError:
     gaussian_filter1d = None
 
 
+def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
+                       mask=None, axis=0):
+    """
+    Returns the intensity weighted average velocity (commonly known as the
+    first moment)
+
+    Args:
+        data (ndarray): The data cube as an array with at least one dimension.
+        x0 (Optional[float]): The wavelength/frequency/velocity/etc. value for
+            the zeroth pixel in the ``axis'' dimension.
+        dx (Optional[float]): The pixel scale of the ``axis'' dimension.
+        uncertainty (Optional[float]): The uncertainty on the
+            intensities given by ``data``. All uncertainties are assumed to be
+            the same. If not provided, the uncertainty on the centroid will not
+            be estimated. TODO: Allow for spatially varying uncertainties.
+        threshold (Optional[float]): All pixel values below this value will not
+            be included in the calculation of the intensity weighted average.
+        mask (Optional[ndarray]): A boolean mask (or such that it can be
+            treated as one) of pixels to include in the calculation. Must be
+            the same shape as the data array.
+        axis (Optional[int]): The axis along which the centroid should be
+            estimated. By default this will be the zeroth axis.
+
+    Returns:
+        x_max (ndarray): The centroid of the brightest line along the ``axis''
+            dimension in each pixel.
+        x_max_sig (ndarray): The uncertainty on ``x_max'' if an uncertainty is
+            given, otherwise None.
+    """
+
+    # Make sure the data is in the corret shape.
+    data = np.moveaxis(data, axis, 0)
+    if mask is not None:
+        mask = np.moveaxis(mask, axis, 0)
+        if mask.shape != data.shape:
+            raise ValueError("Mistmatch in data and mask shapes.")
+
+    # Calculate a noisy weight model so weights don't add up to zero.
+    # Use to mask values which are NaN, masked or below the SNR threshold.
+    weight_mask = 1e-20 * np.random.randn(data.size).reshape(data.shape)
+    threshold = np.nanmin(data) if threshold is None else threshold
+    weights = np.where(data >= threshold, data, weight_mask)
+    if mask is not None:
+        weights = np.where(mask, weights, weight_mask)
+    npix = np.sum(weights == weight_mask, axis=0)
+    weights /= np.sum(weights, axis=0)
+
+    # Calculate the average velocity.
+    v0_pnts = np.arange(data.shape[0])[:, None, None] * np.ones(data.shape)
+    v0 = np.average(v0_pnts, weights=weights, axis=0)
+
+    # If no uncertainty, skip uncertainty calculation.
+    if uncertainty is None:
+        return v0 * dx + x0, None
+
+    # Calculate uncertainty. Propagation of independent uncertainties, which
+    # is not strictly correct, but better than nothing...
+    dv0 = np.sqrt(np.sum(weights**2, axis=0))
+    dv0 /= np.sum(weights * v0_pnts, axis=0)
+    dv0 = np.sqrt(npix) * uncertainty * np.sqrt(1. + dv0**2)
+    return v0 * dx + x0, dv0 * dx
+
+
+def peak_pixel(data, x0=0.0, dx=1.0, axis=0):
+    """
+    Returns the velocity of the peak channel for each pixel, and the pixel
+    value.
+
+    Args:
+        data (ndarray): The data cube as an array with at least one dimension.
+        x0 (Optional[float]): The wavelength/frequency/velocity/etc. value for
+            the zeroth pixel in the ``axis'' dimension.
+        dx (Optional[float]): The pixel scale of the ``axis'' dimension.
+        axis (Optional[int]): The axis along which the centroid should be
+            estimated. By default this will be the zeroth axis.
+
+    Returns:
+        x_max (ndarray): The centroid of the brightest line along the ``axis''
+            dimension in each pixel.
+        x_max_sig (ndarray): The uncertainty on ``x_max''.
+        y_max (ndarray): The predicted value of the intensity at maximum.
+    """
+    x_max = np.argmax(data, axis=axis)
+    y_max = np.max(data, axis=axis)
+    return x0 + dx * x_max, 0.5 * dx, y_max
+
+
 def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
-    """Compute the quadratic estimate of the centroid of a line in a data cube
+    """
+    Compute the quadratic estimate of the centroid of a line in a data cube.
 
     The use case that we expect is a data cube with spatiotemporal coordinates
     in all but one dimension. The other dimension (given by the ``axis``
