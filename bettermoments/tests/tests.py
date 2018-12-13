@@ -8,7 +8,7 @@ import scipy.constants as sc
 from astropy.convolution import convolve_fft
 from astropy.convolution import Gaussian2DKernel
 
-import bettermoments as bm
+import bettermoments.methods as bm
 
 
 @pytest.fixture
@@ -155,13 +155,13 @@ def test_isclose(mock_data):
 
 def test_units(mock_data):
     np.random.seed(42)
-    velax, data, vproj = mock_data
+    velax, data, _ = mock_data
     sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
-    x1, dx1, y1, dy1 = bm.quadratic(data, sigma)
+    x1, dx1, y1, _ = bm.quadratic(data, sigma)
 
     x0 = velax[0]
     dx = velax[1] - velax[0]
-    x2, dx2, y2, dy2 = bm.quadratic(data, sigma, x0=x0, dx=dx)
+    x2, dx2, y2, _ = bm.quadratic(data, sigma, x0=x0, dx=dx)
 
     assert np.allclose(x0 + x1*dx, x2)
     assert np.allclose(dx1*dx, dx2)

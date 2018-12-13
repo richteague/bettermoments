@@ -2,13 +2,10 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1419754.svg)](https://doi.org/10.5281/zenodo.1419754)
 
----
-
-![TW Hydrae](docs/TWHya.png)
-
-Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
-
----
+<p align='center'>
+  <img src="https://github.com/richteague/https://github.com/richteague/bettermoments/blob/master/docs/TWHya.png" width="713.2" height="383"><br/>
+  Measuring precise line-of-sight velocities is essential when looking for small scale deviations indicative of, for example, embedded planets. `bettermoments` helps you measure such velocities.
+</p>
 
 ## Usage
 
