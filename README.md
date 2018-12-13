@@ -1,3 +1,5 @@
+# bettermoments
+
 <p align='center'>
   <img src="https://github.com/richteague/bettermoments/blob/master/docs/TWHya.png" width="435" height="435"><br/>
   Measuring precise line-of-sight velocities from Doppler shifted lines is essential<br/>
