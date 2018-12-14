@@ -9,22 +9,22 @@
 
 ## Usage
 
-To start, clone the repository then run
+To start, clone the repository then in your shell run
 
 ```bash
-pip install .
+$ pip install .
 ```
 
-to install this locally. Then, in the directory of the image cube simply run
+to install this locally. Then in any shell simply run
 
-```bash
-bettermoments path/to/cube.fits
+```console
+$ bettermoments path/to/cube.fits
 ```
 
 which will create lovely line peak and line centroid maps (with uncertainties!). These will be saved in the same directory as the original cube. For more information on the available functions, use:
 
 ```bash
-bettermoments -h
+$ bettermoments -h
 ```
 
 ## Currently Working On
