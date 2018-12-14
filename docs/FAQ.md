@@ -12,7 +12,7 @@ Note that both **quadratic** and **maximum** also return the line peak if you wa
 
 #### Velocity / Line Center
 
-* **quadratic** - As described in [Teague & Foremanmackey (2018)](http://iopscience.iop.org/article/10.3847/2515-5172/aae265/meta), this method fits a quadratic curve to the pixel of peak intensity and its two neighbouring pixels. This results in a line center and line peak.
+* **quadratic** - As described in [Teague & Foreman-Mackey (2018)](http://iopscience.iop.org/article/10.3847/2515-5172/aae265/meta), this method fits a quadratic curve to the pixel of peak intensity and its two neighbouring pixels. This results in a line center and line peak.
 
 * **maximum** - Similar to the **quadratic** method, but only uses the pixel of peak intensity. This limits precision of the line center to the velocity resolution of the data.
 
