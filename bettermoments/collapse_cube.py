@@ -62,6 +62,33 @@ def collapse_quadratic(velax, data, dV=None, rms=None, N=5, axis=0):
                      linewidth=dV, axis=axis)
 
 
+def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
+                    axis=0):
+    """
+    Collapses the cube by integrating along the spectral axis.
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
+        rms (Optional[float]): Noise per pixel. If none is specified, will be
+            calculated from the first and last N channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        threshold (Optional[float]): Clip any pixels below this RMS value.
+        axis (Optional[int]): Spectral axis to collapse the cube along.
+
+    Returns:
+        I0 (ndarray): Integrated intensity along provided axis.
+        dI0 (ndarray): Uncertainty on I0 in the same units as I0.
+    """
+    from bettermoments.methods import integrated
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    return integrated(data=data, dx=abs(chan), uncertainty=rms,
+                      threshold=threshold*rms, mask=_read_mask(mask, data),
+                      axis=axis)
+
+
 def collapse_maximum(velax, data, rms=None, N=5, axis=0):
     """
     Coallapses the cube by taking the velocity of the maximum intensity pixel
@@ -89,14 +116,9 @@ def collapse_maximum(velax, data, rms=None, N=5, axis=0):
             last channels.
     """
     from bettermoments.methods import peak_pixel
-    if data.shape[axis] != velax.size:
-        raise ValueError("Must collapse along the spectral axis!")
-    chan = np.diff(velax).mean()
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     v0, dv0, Fnu = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
-    if rms is None:
-        dFnu = _estimate_RMS(data=data, N=N)
-    else:
-        dFnu = rms * np.ones(v0.shape)
+    dFnu = rms * np.ones(v0.shape)
     return v0, dv0, Fnu, dFnu
 
 
@@ -118,29 +140,16 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
             pixels to be excluded in the fitting. Can either be a full 3D mask,
             a 2D channel mask, or a 1D spectrum mask.
         threshold (Optional[float]): Clip any pixels below this RMS value.
+        axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
         v0 (ndarray): Line center in the same units as velax.
     """
     from bettermoments.methods import intensity_weighted
-    if data.shape[axis] != velax.size:
-        raise ValueError("Must collapse along the spectral axis!")
-
-    if rms is None:
-        rms = _estimate_RMS(data=data, N=N)
-    chan = np.diff(velax).mean()
-
-    if mask:
-        mask = _get_data(mask)
-        if mask.shape != data.shape:
-            raise ValueError("Mismatch in mask and data shape.")
-    else:
-        mask = None
-
-    v0, dv0 = intensity_weighted(data=data, x0=velax[0], dx=chan,
-                                 uncertainty=rms, threshold=threshold*rms,
-                                 mask=mask, axis=axis)
-    return v0, dv0
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    return intensity_weighted(data=data, x0=velax[0], dx=chan,
+                              uncertainty=rms, threshold=threshold*rms,
+                              mask=_read_mask(mask, data), axis=axis)
 
 
 def _get_cube(path):
@@ -196,24 +205,53 @@ def _estimate_RMS(data, N=5):
     return rms * np.ones(data[0].shape)
 
 
-def _save_array(original_path, new_path, array):
+def _read_mask(mask, data):
+    """Read in the mask and make sure it is the same shape as the data."""
+    if mask:
+        mask = _get_data(mask)
+        if mask.shape != data.shape:
+            raise ValueError("Mismatch in mask and data shape.")
+    else:
+        mask = None
+    return mask
+
+
+def _verify_data(data, velax, rms=None, N=5, axis=0):
+    """Veryify the data shape and read in image properties."""
+    if data.shape[axis] != velax.size:
+        raise ValueError("Must collapse along the spectral axis!")
+    if rms is None:
+        rms = _estimate_RMS(data=data, N=N)
+    chan = np.diff(velax).mean()
+    return rms, chan
+
+
+def _save_array(original_path, new_path, array, overwrite=True, bunit=None,
+                btype=None):
     """Use the header from `original_path` to save a new FITS file."""
     header = fits.getheader(original_path)
 
     # Remove pesky values.
-    for key in ['history']:
+    for key in ['history', 'object']:
         try:
             header.pop(key, None)
         except KeyError:
             pass
 
-    # Update the spectral axis.
-    header['naxis3'] = 1
-    header['cdelt3'] = np.nanstd(array)
-    header['crval3'] = np.nanmean(array)
-    header['crpix3'] = 1e0
+    for key in ['naxis', 'cdelt', 'crval', 'crpix']:
+        for a in ['3', '4']:
+            try:
+                header.pop(key + a, None)
+            except KeyError:
+                pass
 
-    fits.writeto(new_path, array, header, overwrite=True)
+    # Include the units.
+    if bunit is not None:
+        header['bunit'] = bunit
+    if btype is not None:
+        header['btype'] = btype
+
+    fits.writeto(new_path, array.astype(float), header, overwrite=overwrite)
 
 
 def main():
@@ -224,28 +262,40 @@ def main():
     parser.add_argument('path',
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
-                        help='Method used to collapse cube')
+                        help='Method used to collapse cube. Current available'
+                             'methods are: quadratic, maximum, first, zeroth.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
-                        help='Fill value for masked pixels.')
-    parser.add_argument('-dV', default=0.0, type=float,
-                        help='Linewidth used to smooth data.')
+                        help='Fill value for masked pixels. Default is NaN.')
+    parser.add_argument('-linewidth', default=0.0, type=float,
+                        help='Linewidth in m/s used to smooth data.'
+                             'For best results, use a linewidth comprable to'
+                             'the intrinsic linewidth.')
     parser.add_argument('-rms', default=None, type=float,
-                        help='Estimated RMS noise from a line free channel.')
+                        help='Estimated RMS noise from a line free channel.'
+                             'Same units as the brightness unit.')
     parser.add_argument('-N', default=5, type=int,
                         help='Number of end channels to use to estimate RMS.')
     parser.add_argument('-mask', default='',
-                        help='Path to the mask FITS cube.')
+                        help='Path to the mask FITS cube. Must have the same'
+                             'shape as the input data.')
     parser.add_argument('-axis', default=0, type=int,
-                        help='Axis to collapse the cube along.')
+                        help='Axis to collapse the cube along. Default is 0.')
+    parser.add_argument('-overwrite', default=True, type=bool,
+                        help='Overwrite existing files with the same name.')
+    parser.add_argument('--nomask', action='store_true',
+                        help='Clip the final moment map using the provided'
+                             '`clip` value. Default is True.')
     parser.add_argument('--silent', action='store_true',
                         help='Run silently.')
     args = parser.parse_args()
+    args.method = args.method.lower()
 
     # Read in the cube [Jy/beam] and velocity axis [m/s].
 
     data, velax = _get_cube(args.path)
+    I0, dI0, dV, ddV = None, None, None, None
     v0, dv0, Fnu, dFnu = None, None, None, None
 
     # Collapse the cube with the approrpriate method.
@@ -253,25 +303,33 @@ def main():
     if not args.silent:
         print("Calculating maps.")
 
-    if args.method.lower() == 'quadratic':
-        out = collapse_quadratic(velax=velax, data=data, dV=args.dV,
+    if args.method == 'quadratic':
+        out = collapse_quadratic(velax=velax, data=data, dV=args.linewidth,
                                  rms=args.rms, N=args.N, axis=args.axis)
         v0, dv0, Fnu, dFnu = out
 
-    elif args.method.lower() == 'maximum':
+    elif (args.method == 'maximum' or args.method == 'eighth'):
         out = collapse_maximum(velax=velax, data=data, rms=args.rms, N=args.N,
                                axis=args.axis)
         v0, dv0, Fnu, dFnu = out
 
-    elif args.method.lower() == 'first':
+    elif args.method == 'first':
         v0 = collapse_first(velax=velax, data=data, threshold=args.clip,
-                            rms=args.rms, N=args.N, mask=None, axis=args.axis)
+                            rms=args.rms, N=args.N, mask=args.mask,
+                            axis=args.axis)
+
+    elif args.method == 'zeroth':
+        out = collapse_zeroth(velax=velax, data=data, threshold=args.clip,
+                              rms=args.rms, N=args.N, mask=args.mask,
+                              axis=args.axis)
+        I0, dI0 = out
+
     else:
         raise ValueError("Unknown method.")
 
     # Mask the data. If no uncertainties are found for dFnu, use the RMS.
 
-    if args.clip > 0.0:
+    if args.clip > 0.0 and not args.nomask:
 
         if not args.silent:
             print("Masking maps.")
@@ -289,28 +347,50 @@ def main():
         mask = np.where(noise != 0.0, noise, rndm)
         mask = np.where(np.isfinite(mask), mask, rndm)
         mask = np.where(np.isfinite(signal), signal, 0.0) / mask >= args.clip
-
-        if v0 is not None:
-            v0 = np.where(mask, v0, args.fill)
-        if dv0 is not None:
-            dv0 = np.where(mask, dv0, args.fill)
-        if Fnu is not None:
-            Fnu = np.where(mask, Fnu, args.fill)
-        if dFnu is not None:
-            dFnu = np.where(mask, dFnu, args.fill)
+    else:
+        mask = np.moveaxis(np.ones(data.shape), args.axis, 0)
+        mask = np.ones(mask[0].shape)
 
     # Save the files.
 
     if not args.silent:
         print("Saving maps.")
+
+    if I0 is not None:
+        I0 = np.where(mask, I0, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_I0.fits'), I0,
+                    overwrite=args.overwrite, bunit='Jy/beam m/s')
+    if dI0 is not None:
+        dI0 = np.where(mask, dI0, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_dI0.fits'), dI0,
+                    overwrite=args.overwrite, bunit='Jy/beam m/s')
+
     if v0 is not None:
-        _save_array(args.path, args.path.replace('.fits', '_v0.fits'), v0)
+        v0 = np.where(mask, v0, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_v0.fits'), v0,
+                    overwrite=args.overwrite, bunit='m/s')
     if dv0 is not None:
-        _save_array(args.path, args.path.replace('.fits', '_dv0.fits'), dv0)
+        dv0 = np.where(mask, dv0, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_dv0.fits'), dv0,
+                    overwrite=args.overwrite, bunit='m/s')
+
     if Fnu is not None:
-        _save_array(args.path, args.path.replace('.fits', '_Fnu.fits'), Fnu)
+        Fnu = np.where(mask, Fnu, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_Fnu.fits'), Fnu,
+                    overwrite=args.overwrite)
     if dFnu is not None:
-        _save_array(args.path, args.path.replace('.fits', '_dFnu.fits'), dFnu)
+        dFnu = np.where(mask, dFnu, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_dFnu.fits'), dFnu,
+                    overwrite=args.overwrite)
+
+    if dV is not None:
+        dV = np.where(mask, dV, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_dV.fits'), v0,
+                    overwrite=args.overwrite, bunit='m/s')
+    if ddV is not None:
+        ddV = np.where(mask, ddV, args.fill)
+        _save_array(args.path, args.path.replace('.fits', '_ddV.fits'), dv0,
+                    overwrite=args.overwrite, bunit='m/s')
 
 
 if __name__ == '__main__':

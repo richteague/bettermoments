@@ -2,7 +2,7 @@
 
 from __future__ import division, print_function
 
-__all__ = ["quadratic", "peak_pixel"]
+__all__ = ["quadratic", "peak_pixel", "intensity_weighted"]
 
 import numpy as np
 
@@ -11,6 +11,50 @@ try:
 except ImportError:
     gaussian_filter1d = None
 
+
+def integrated(data, dx=1.0, uncertainty=None, threshold=None, mask=None,
+               axis=0):
+    """
+    Returns the integrated intensity (commonly known as the zeroth moment).
+
+    Args:
+        data (ndarray): The data cube as an array with at least one dimension.
+        dx (Optional[float]): The pixel scale of the ``axis'' dimension.
+        uncertainty (Optional[float]): The uncertainty on the
+            intensities given by ``data``. All uncertainties are assumed to be
+            the same. If not provided, the uncertainty on the centroid will not
+            be estimated. TODO: Allow for spatially varying uncertainties.
+        threshold (Optional[float]): All pixel values below this value will not
+            be included in the calculation of the intensity weighted average.
+        mask (Optional[ndarray]): A boolean mask (or such that it can be
+            treated as one) of pixels to include in the calculation. Must be
+            the same shape as the data array.
+        axis (Optional[int]): The axis along which the centroid should be
+            estimated. By default this will be the zeroth axis.
+
+    Returns:
+        y_int (ndarray): The integrated intensity along the ``axis'' dimension
+            in each pixel. The units will be [data] * [dx], so typically
+            Jy/beam m/s (or equivalently mJy/beam km/s).
+        y_int_sig (ndarray): The uncertainty on ``y_int'' if an uncertainty is
+            given, otherwise None.
+    """
+
+    # Make sure the data is in the corret shape.
+    data = np.moveaxis(data, axis, 0)
+    if mask is not None:
+        mask = np.moveaxis(mask, axis, 0)
+        if mask.shape != data.shape:
+            raise ValueError("Mistmatch in data and mask shapes.")
+
+    # Mask the data and calculate the intergrated intensity.
+    threshold = np.nanmin(data) if threshold is None else threshold
+    mask = np.logical_or(mask, data >= threshold)
+    npix = np.sum(mask, axis=0)
+    y_int = np.sum(np.where(mask, data, 0.0), axis=0) * npix * dx
+    if uncertainty is None:
+        y_int, None
+    return y_int, npix * dx * uncertainty
 
 def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
                        mask=None, axis=0):
