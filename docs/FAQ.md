@@ -21,7 +21,7 @@ Note that both **quadratic** and **maximum** also return the line peak if you wa
 
 #### Velocity Dispersion
 
-* _Coming Soon_
+* **width** - An alternative to the typical second moment map. A rescaled ratio of the integrated intensity, calculated with **maximum**, divided by the line peak calculated by **quadratic**. For an intrinsic Gaussian line, this is equal to the Doppler width.
 
 #### Analytical Fits
 
