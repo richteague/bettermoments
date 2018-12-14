@@ -27,7 +27,7 @@ which will create lovely line peak and line centroid maps (with uncertainties!).
 $ bettermoments -h
 ```
 
-or refer to the [FAQ](./blob/master/docs/FAQ.md) for more detail.
+or refer to the [FAQ](https://github.com/richteague/bettermoments/blob/master/docs/FAQ.md) for more detail.
 
 ## Currently Working On
 
