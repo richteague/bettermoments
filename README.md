@@ -37,7 +37,7 @@ or refer to the [FAQ](https://github.com/richteague/bettermoments/blob/master/do
 
 ## Attribution
 
-If you make use of this package in your research, please cite [Teague & Foreman-Mackey (2018)](https://arxiv.org/abs/1809.10295),
+If you make use of this package in your research, particularly the `quadratic` method, please cite [Teague & Foreman-Mackey (2018)](https://arxiv.org/abs/1809.10295),
 
 ```
 @ARTICLE{2018RNAAS...2c.173T,
