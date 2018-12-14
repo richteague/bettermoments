@@ -1,15 +1,7 @@
 """
 Collapse a FITS image cube down to a velocity map using one of the methods
 implemented in bettermoments. This file should only contain basic collapsing
-functions (if they are easily implemented in NumPy), more complex functions
-should be located in bettermoments.py.
-
-To Do:
-
-    1 - Zeroth and second moment maps.
-    2 - Effective width maps.
-    3 - Analytical fits (Gaussian, Gauss-Hermite).
-    4 - Modify the header of the saved fits files.
+functions, wrappers of more complex functions located in methods.py.
 """
 
 import argparse
@@ -18,16 +10,18 @@ import scipy.constants as sc
 from astropy.io import fits
 
 
-def collapse_quadratic(velax, data, dV=None, rms=None, N=5, axis=0):
+def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
     """
-    Collapse the cube using the quadratic method.
+    Collapse the cube using the quadratic method. Will return the line center,
+    v0, and the uncertainty on this, as well as the line peak, Fnu, and the
+    uncertainty on that.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux density or brightness temperature array. Assumes
             that the first axis is the velocity axis.
-        dV (Optional[float]): Doppler width of the line. If specified will be
-            used to smooth the data prior to the quadratic fit.
+        linewidth (Optional[float]): Doppler width of the line. If specified
+            will be used to smooth the data prior to the quadratic fit.
         rms (Optional[float]): Noise per pixel. If none is specified, will be
             calculated from the first and last N channels.
         N (Optional[int]): Number of channels to use in the estimation of the
@@ -40,32 +34,22 @@ def collapse_quadratic(velax, data, dV=None, rms=None, N=5, axis=0):
         Fnu (ndarray): Line peak in the same units as the data.
         dFnu (ndarray): Uncertainty in Fnu in the same units as the data.
     """
-
     from bettermoments.methods import quadratic
-
-    # Check the shape.
-    if data.shape[axis] != velax.size:
-        raise ValueError("Must collapse along the spectral axis!")
-
-    # Estimate the uncertainty.
-    if rms is None:
-        rms = _estimate_RMS(data, N=N)
-        rms = np.nanmean(rms)
-
-    # Convert linewidth units.
-    chan = np.diff(velax).mean()
-    if dV > 0.0:
-        dV = abs(dV / chan / np.sqrt(2.))
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    if linewidth > 0.0:
+        linewidth = abs(linewidth / chan / np.sqrt(2.))
     else:
-        dV = None
-    return quadratic(data, x0=velax[0], dx=chan, uncertainty=rms,
-                     linewidth=dV, axis=axis)
+        linewidth = None
+    return quadratic(data, x0=velax[0], dx=chan, linewidth=linewidth,
+                     uncertainty=np.ones(data.shape)*rms, axis=axis)
 
 
 def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
                     axis=0):
     """
-    Collapses the cube by integrating along the spectral axis.
+    Collapses the cube by integrating along the spectral axis. It will return
+    the integrated intensity along the spectral axis, I0, and the associated
+    uncertainty, dI0.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -93,7 +77,9 @@ def collapse_maximum(velax, data, rms=None, N=5, axis=0):
     """
     Coallapses the cube by taking the velocity of the maximum intensity pixel
     along the spectral axis. This is the 'ninth' moment in CASA's immoments
-    task. Can additionally return the peak value ('eighth moment').
+    task. Can additionally return the peak value ('eighth moment'). This will
+    return the line center, v0, and its ucertainty, along with the like peak,
+    Fnu, and its uncertainty, dFnu.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -126,7 +112,7 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
                    axis=0):
     """
     Collapses the cube using the intensity weighted average velocity (or first
-    moment map).
+    moment map). This returns the line center, v0, and its uncertainty.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -150,6 +136,59 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
     return intensity_weighted(data=data, x0=velax[0], dx=chan,
                               uncertainty=rms, threshold=threshold*rms,
                               mask=_read_mask(mask, data), axis=axis)
+
+
+def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
+                   mask=None, axis=0):
+    """
+    Returns an effective width, a rescaled ratio of the integrated intensity
+    and the line peak. For a Gaussian line profile this would be the Doppler
+    width. This should be more robust against noise than second moment maps.
+    This returns all four parameters.
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
+        linewidth (Optional[float]): Doppler width of the line. If specified
+            will be used to smooth the data prior to the quadratic fit.
+        rms (Optional[float]): Noise per pixel. If none is specified, will be
+            calculated from the first and last N channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        threshold (Optional[float]): Clip any pixels below this RMS value.
+        mask (Optional[ndarray]): A boolean or integeter array masking certain
+            pixels to be excluded in the fitting. Can either be a full 3D mask,
+            a 2D channel mask, or a 1D spectrum mask.
+        axis (Optional[int]): Spectral axis to collapse the cube along.
+
+    Returns:
+        I0 (ndarray): Integrated intensity along provided axis.
+        dI0 (ndarray): Uncertainty on I0 in the same units as I0.
+        v0 (ndarray): Line center in the same units as velax.
+        dv0 (ndarray): Uncertainty on v0 in the same units as velax. Will be
+            the channel width.
+        Fnu (ndarray): Line peak in the same units as the data.
+        dFnu (ndarray): Uncertainty in Fnu in the same units as the data. Will
+            be the RMS calculate from the first and last channels.
+        dV (ndarray): Effective velocity dispersion.
+        ddV (ndarray): Uncertainty on the velocity dispersion.
+    """
+    from bettermoments.methods import integrated, quadratic
+    mask = _read_mask(mask, data)
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    I0, dI0 = integrated(data=data, dx=chan, uncertainty=rms,
+                         threshold=threshold*rms, mask=mask, axis=axis)
+    if linewidth > 0.0:
+        linewidth = abs(linewidth / chan / np.sqrt(2.))
+    else:
+        linewidth = None
+    v0, dv0, Fnu, dFnu = quadratic(data, x0=velax[0], dx=chan,
+                                   uncertainty=np.ones(data.shape)*rms,
+                                   linewidth=linewidth, axis=axis)
+    dV = I0 / Fnu / np.sqrt(np.pi)
+    ddV = dV * np.hypot(dFnu / Fnu, dI0 / I0)
+    return I0, dI0, v0, dv0, Fnu, dFnu, dV, ddV
 
 
 def _get_cube(path):
@@ -263,7 +302,8 @@ def main():
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube. Current available'
-                             'methods are: quadratic, maximum, first, zeroth.')
+                             'methods are: quadratic, maximum, first, zeroth,'
+                             ' and width.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
@@ -304,8 +344,9 @@ def main():
         print("Calculating maps.")
 
     if args.method == 'quadratic':
-        out = collapse_quadratic(velax=velax, data=data, dV=args.linewidth,
-                                 rms=args.rms, N=args.N, axis=args.axis)
+        out = collapse_quadratic(velax=velax, data=data, N=args.N,
+                                 axis=args.axis, linewidth=args.linewidth,
+                                 rms=args.rms)
         v0, dv0, Fnu, dFnu = out
 
     elif (args.method == 'maximum' or args.method == 'eighth'):
@@ -323,6 +364,12 @@ def main():
                               rms=args.rms, N=args.N, mask=args.mask,
                               axis=args.axis)
         I0, dI0 = out
+
+    elif args.method == 'width':
+        out = collapse_width(velax=velax, data=data, threshold=args.clip,
+                             rms=args.rms, N=args.N, mask=args.mask,
+                             axis=args.axis, linewidth=args.linewidth)
+        I0, dI0, v0, dv0, Fnu, dFnu, dV, ddV = out
 
     else:
         raise ValueError("Unknown method.")
@@ -385,11 +432,11 @@ def main():
 
     if dV is not None:
         dV = np.where(mask, dV, args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_dV.fits'), v0,
+        _save_array(args.path, args.path.replace('.fits', '_dV.fits'), dV,
                     overwrite=args.overwrite, bunit='m/s')
     if ddV is not None:
         ddV = np.where(mask, ddV, args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_ddV.fits'), dv0,
+        _save_array(args.path, args.path.replace('.fits', '_ddV.fits'), ddV,
                     overwrite=args.overwrite, bunit='m/s')
 
 

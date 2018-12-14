@@ -15,7 +15,7 @@ To start, clone the repository then in your shell run
 $ pip install .
 ```
 
-to install this locally. Then in any shell simply run
+to install this locally. **This currently only works with Python 3:** Then in any shell simply run
 
 ```console
 $ bettermoments path/to/cube.fits

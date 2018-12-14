@@ -50,7 +50,7 @@ def integrated(data, dx=1.0, uncertainty=None, threshold=None, mask=None,
     # Mask the data and calculate the intergrated intensity.
     threshold = np.nanmin(data) if threshold is None else threshold
     mask = np.logical_or(mask, data >= threshold)
-    npix = np.sum(mask, axis=0)
+    npix = np.sum(mask, axis=0).astype(float)
     y_int = np.sum(np.where(mask, data, 0.0), axis=0) * npix * dx
     if uncertainty is None:
         return y_int, None
