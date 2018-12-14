@@ -53,8 +53,9 @@ def integrated(data, dx=1.0, uncertainty=None, threshold=None, mask=None,
     npix = np.sum(mask, axis=0)
     y_int = np.sum(np.where(mask, data, 0.0), axis=0) * npix * dx
     if uncertainty is None:
-        y_int, None
+        return y_int, None
     return y_int, npix * dx * uncertainty
+
 
 def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
                        mask=None, axis=0):
