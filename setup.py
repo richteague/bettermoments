@@ -5,6 +5,10 @@ import os
 import sys
 from distutils.core import setup
 
+
+if sys.version < '3.3':
+    raise RuntimeError("bettermoments needs Python 3.3 or newer.")
+
 if sys.argv[-1] == "publish":
     os.system("python setup.py sdist upload")
     sys.exit()
@@ -15,7 +19,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 setup(
     name="bettermoments",
-    version="1.0.0",
+    version="1.1.0",
     author="Richard Teague & Daniel Foreman-Mackey",
     author_email='rteague@umich.edu',
     packages=['bettermoments', 'bettermoments.tests'],
