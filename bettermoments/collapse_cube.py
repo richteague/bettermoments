@@ -265,32 +265,52 @@ def _verify_data(data, velax, rms=None, N=5, axis=0):
     return rms, chan
 
 
-def _save_array(original_path, new_path, array, overwrite=True, bunit=None,
-                btype=None):
-    """Use the header from `original_path` to save a new FITS file."""
-    header = fits.getheader(original_path)
+def _collapse_beamtable(path):
+    """Returns the median beam from the CASA beam table if present."""
+    header = fits.getheader(path)
+    if header.get('CASAMBM', False):
+        beam = fits.open(path)[1].data
+        beam = np.median([b[:3] for b in beam.view()], axis=0)
+        return beam[0] / 3600., beam[1] / 3600., beam[2]
+    return header['bmaj'], header['bmin'], header['bpa']
 
-    # Remove pesky values.
-    for key in ['history', 'object']:
-        try:
-            header.pop(key, None)
-        except KeyError:
-            pass
 
-    for key in ['naxis', 'cdelt', 'crval', 'crpix']:
-        for a in ['3', '4']:
-            try:
-                header.pop(key + a, None)
-            except KeyError:
-                pass
-
-    # Include the units.
+def _write_header(path, bunit):
+    """Write a new header for the saved file."""
+    header = fits.getheader(path, copy=True)
+    new_header = fits.PrimaryHDU().header
+    new_header['SIMPLE'] = True
+    new_header['BITPIX'] = -64
+    new_header['NAXIS'] = 2
+    beam = _collapse_beamtable(path)
+    new_header['BMAJ'] = beam[0]
+    new_header['BMIN'] = beam[1]
+    new_header['BPA'] = beam[2]
     if bunit is not None:
-        header['bunit'] = bunit
-    if btype is not None:
-        header['btype'] = btype
+        new_header['BUNIT'] = bunit
+    else:
+        new_header['BUNIT'] = header['BUNIT']
+    for i in [1, 2]:
+        for val in ['NAXIS', 'CTYPE', 'CRVAL', 'CDELT', 'CRPIX', 'CUNIT']:
+            key = '%s%d' % (val, i)
+            new_header[key] = header[key]
+    try:
+        new_header['RESTFRQ'] = header['RESTFRQ']
+    except KeyError:
+        new_header['RESTFREQ'] = header['RESTFREQ']
+    try:
+        new_header['SPECSYS'] = header['SPECSYS']
+    except KeyError:
+        pass
+    new_header['COMMENT'] = 'made with bettermoments'
+    return new_header
 
-    fits.writeto(new_path, array.astype(float), header, overwrite=overwrite)
+
+def _save_array(original_path, new_path, array, overwrite=True, bunit=None):
+    """Use the header from `original_path` to save a new FITS file."""
+    header = _write_header(original_path, bunit)
+    fits.writeto(new_path, array.astype(float), header, overwrite=overwrite,
+                 output_verify='silentfix')
 
 
 def main():

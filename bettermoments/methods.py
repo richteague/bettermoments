@@ -2,7 +2,7 @@
 
 from __future__ import division, print_function
 
-__all__ = ["quadratic", "peak_pixel", "intensity_weighted"]
+__all__ = ["quadratic", "peak_pixel", "intensity_weighted", "integrated"]
 
 import numpy as np
 
@@ -51,7 +51,7 @@ def integrated(data, dx=1.0, uncertainty=None, threshold=None, mask=None,
     threshold = np.nanmin(data) if threshold is None else threshold
     mask = np.logical_or(mask, data >= threshold)
     npix = np.sum(mask, axis=0).astype(float)
-    y_int = np.sum(np.where(mask, data, 0.0), axis=0) * npix * dx
+    y_int = np.trapz(np.where(mask, data, 0.0), dx=dx, axis=0)
     if uncertainty is None:
         return y_int, None
     return y_int, npix * dx * uncertainty
