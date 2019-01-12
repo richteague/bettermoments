@@ -31,7 +31,6 @@ or refer to the [FAQ](https://github.com/richteague/bettermoments/blob/master/do
 
 ## Currently Working On
 
-* Correct header information in the saved files.
 * Analytical fits, e.g. Gaussians or Gauss-Hermite expansions.
 * Documentation.
 
