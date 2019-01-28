@@ -428,7 +428,7 @@ def main():
         _save_array(args.path, args.path.replace('.fits', '_I0.fits'), I0,
                     overwrite=args.overwrite, bunit='Jy/beam m/s')
     if dI0 is not None:
-        dI0 = np.where(mask, dI0, args.fill)
+        dI0 = np.where(mask, abs(dI0), args.fill)
         _save_array(args.path, args.path.replace('.fits', '_dI0.fits'), dI0,
                     overwrite=args.overwrite, bunit='Jy/beam m/s')
 
@@ -437,7 +437,7 @@ def main():
         _save_array(args.path, args.path.replace('.fits', '_v0.fits'), v0,
                     overwrite=args.overwrite, bunit='m/s')
     if dv0 is not None:
-        dv0 = np.where(mask, dv0, args.fill)
+        dv0 = np.where(mask, abs(dv0), args.fill)
         _save_array(args.path, args.path.replace('.fits', '_dv0.fits'), dv0,
                     overwrite=args.overwrite, bunit='m/s')
 
@@ -446,7 +446,7 @@ def main():
         _save_array(args.path, args.path.replace('.fits', '_Fnu.fits'), Fnu,
                     overwrite=args.overwrite)
     if dFnu is not None:
-        dFnu = np.where(mask, dFnu, args.fill)
+        dFnu = np.where(mask, abs(dFnu), args.fill)
         _save_array(args.path, args.path.replace('.fits', '_dFnu.fits'), dFnu,
                     overwrite=args.overwrite)
 
@@ -455,7 +455,7 @@ def main():
         _save_array(args.path, args.path.replace('.fits', '_dV.fits'), dV,
                     overwrite=args.overwrite, bunit='m/s')
     if ddV is not None:
-        ddV = np.where(mask, ddV, args.fill)
+        ddV = np.where(mask, abs(ddV), args.fill)
         _save_array(args.path, args.path.replace('.fits', '_ddV.fits'), ddV,
                     overwrite=args.overwrite, bunit='m/s')
 
