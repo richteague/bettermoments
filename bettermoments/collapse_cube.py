@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 import scipy.constants as sc
 from astropy.io import fits
+from scipy.ndimage.filters import convolve1d
 
 
 def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
@@ -198,7 +199,8 @@ def _get_cube(path):
 
 def _get_data(path):
     """Read the FITS cube. Should remove Stokes axis if attached."""
-    return np.squeeze(fits.getdata(path))
+    data = np.squeeze(fits.getdata(path))
+    return np.where(np.isfinite(data), data, 0.0)
 
 
 def _get_velax(path):
@@ -272,7 +274,10 @@ def _collapse_beamtable(path):
         beam = fits.open(path)[1].data
         beam = np.median([b[:3] for b in beam.view()], axis=0)
         return beam[0] / 3600., beam[1] / 3600., beam[2]
-    return header['bmaj'], header['bmin'], header['bpa']
+    try:
+        return header['bmaj'], header['bmin'], header['bpa']
+    except KeyError:
+        return abs(header['cdelt1']), abs(header['cdelt2']), 0.0
 
 
 def _write_header(path, bunit):
@@ -321,31 +326,33 @@ def main():
     parser.add_argument('path',
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
-                        help='Method used to collapse cube. Current available'
-                             'methods are: quadratic, maximum, first, zeroth,'
-                             ' and width.')
+                        help='Method used to collapse cube. Current available '
+                             'methods are: quadratic, maximum, first, zeroth'
+                             'and width.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
                         help='Fill value for masked pixels. Default is NaN.')
     parser.add_argument('-linewidth', default=0.0, type=float,
                         help='Linewidth in m/s used to smooth data.'
-                             'For best results, use a linewidth comprable to'
+                             'For best results, use a linewidth comprable to '
                              'the intrinsic linewidth.')
     parser.add_argument('-rms', default=None, type=float,
-                        help='Estimated RMS noise from a line free channel.'
+                        help='Estimated RMS noise from a line free channel. '
                              'Same units as the brightness unit.')
     parser.add_argument('-N', default=5, type=int,
                         help='Number of end channels to use to estimate RMS.')
     parser.add_argument('-mask', default='',
-                        help='Path to the mask FITS cube. Must have the same'
+                        help='Path to the mask FITS cube. Must have the same '
                              'shape as the input data.')
     parser.add_argument('-axis', default=0, type=int,
                         help='Axis to collapse the cube along. Default is 0.')
+    parser.add_argument('-downsample', default=1, type=int,
+                        help='Downsample the data by this factor.')
     parser.add_argument('-overwrite', default=True, type=bool,
                         help='Overwrite existing files with the same name.')
     parser.add_argument('--nomask', action='store_true',
-                        help='Clip the final moment map using the provided'
+                        help='Clip the final moment map using the provided '
                              '`clip` value. Default is True.')
     parser.add_argument('--silent', action='store_true',
                         help='Run silently.')
@@ -357,6 +364,18 @@ def main():
     data, velax = _get_cube(args.path)
     I0, dI0, dV, ddV = None, None, None, None
     v0, dv0, Fnu, dFnu = None, None, None, None
+
+    # If resampled is requested, average over the data and convolve with a top
+    # hat function to minimic the channelization of ALMA.
+
+    if args.downsample > 1:
+        N = int(args.downsample)
+        data = np.array([np.nanmean(data[i*N:(i+1)*N], axis=0)
+                         for i in range(int(velax.size / N))])
+        kernel = np.ones(N) / float(N)
+        data = convolve1d(data, kernel, mode='reflect', axis=args.axis)
+        velax = np.array([np.average(velax[i*N:(i+1)*N])
+                          for i in range(int(velax.size / N))])
 
     # Collapse the cube with the approrpriate method.
 
