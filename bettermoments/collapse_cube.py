@@ -327,7 +327,7 @@ def main():
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube. Current available '
-                             'methods are: quadratic, maximum, first, zeroth'
+                             'methods are: quadratic, maximum, first, zeroth '
                              'and width.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
