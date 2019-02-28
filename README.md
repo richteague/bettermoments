@@ -53,5 +53,7 @@ If you make use of this package in your research, particularly the `quadratic` m
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 ```
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dee9bf4b8b6b4d35bab87fded4e6636f)](https://app.codacy.com/app/richteague/bettermoments?utm_source=github.com&utm_medium=referral&utm_content=richteague/bettermoments&utm_campaign=Badge_Grade_Dashboard)
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1419754.svg)](https://doi.org/10.5281/zenodo.1419754)
+<a href="http://ascl.net/1901.009"><img src="https://img.shields.io/badge/ascl-1901.009-blue.svg?colorB=262255" alt="ascl:1901.009" /></a>
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dee9bf4b8b6b4d35bab87fded4e6636f)](https://app.codacy.com/app/richteague/bettermoments?utm_source=github.com&utm_medium=referral&utm_content=richteague/bettermoments&utm_campaign=Badge_Grade_Dashboard)
