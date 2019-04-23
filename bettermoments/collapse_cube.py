@@ -239,8 +239,8 @@ def _read_spectral_axis(header):
 
 def _estimate_RMS(data, N=5):
     """Return the estimated RMS in the first and last N channels."""
-    x1, x2 = np.percentile(np.arange(data.shape[2]), [25, 75])
-    y1, y2 = np.percentile(np.arange(data.shape[1]), [25, 75])
+    x1, x2 = np.percentile(np.arange(data.shape[2]), [45, 55])
+    y1, y2 = np.percentile(np.arange(data.shape[1]), [45, 55])
     x1, x2, y1, y2, N = int(x1), int(x2), int(y1), int(y2), int(N)
     rms = np.nanstd([data[:N, y1:y2, x1:x2], data[-N:, y1:y2, x1:x2]])
     return rms * np.ones(data[0].shape)
@@ -394,9 +394,9 @@ def main():
         v0, dv0, Fnu, dFnu = out
 
     elif args.method == 'first':
-        v0 = collapse_first(velax=velax, data=data, threshold=args.clip,
-                            rms=args.rms, N=args.N, mask=args.mask,
-                            axis=args.axis)
+        v0, dv0 = collapse_first(velax=velax, data=data, threshold=args.clip,
+                                 rms=args.rms, N=args.N, mask=args.mask,
+                                 axis=args.axis)
 
     elif args.method == 'zeroth':
         out = collapse_zeroth(velax=velax, data=data, threshold=args.clip,

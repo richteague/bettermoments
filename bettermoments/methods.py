@@ -112,12 +112,18 @@ def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
     if uncertainty is None:
         return v0 * dx + x0, None
 
-    # Calculate uncertainty. Propagation of independent uncertainties, which
-    # is not strictly correct, but better than nothing...
-    dv0 = np.sqrt(np.sum(weights**2, axis=0))
-    dv0 /= np.sum(weights * v0_pnts, axis=0)
-    dv0 = np.sqrt(npix) * uncertainty * np.sqrt(1. + dv0**2)
-    return v0 * dx + x0, dv0 * dx
+    # Calculate uncertainty. Propagation of independent uncertainties.
+    # Not technically correct but better than nothing...
+    # TODO: tidy up this section.
+    v0 = v0 * dx + x0
+    v0_pnts = v0_pnts * dx + x0
+    if mask is None:
+        mask = abs(data) > threshold
+    A = np.sum(data * mask * v0_pnts, axis=0)
+    B = np.sum(data * mask, axis=0)
+    C = np.sum(v0_pnts**2, axis=0)
+    dv0 = v0 * uncertainty * np.hypot(np.sqrt(C) / A, np.sqrt(npix) / B)
+    return v0, dv0
 
 
 def peak_pixel(data, x0=0.0, dx=1.0, axis=0):
