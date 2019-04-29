@@ -2,7 +2,12 @@
 
 from __future__ import division, print_function
 
-__all__ = ["quadratic", "peak_pixel", "intensity_weighted", "integrated"]
+__all__ = ["quadratic",
+           "peak_pixel",
+           "integrated_intensity",
+           "intensity_weighted_velocity",
+           "intensity_weighted_dispersion",
+           "get_mask", "get_intensity_weights"]
 
 import numpy as np
 
@@ -12,18 +17,66 @@ except ImportError:
     gaussian_filter1d = None
 
 
-def integrated(data, dx=1.0, uncertainty=None, threshold=None, mask=None,
-               axis=0):
+def get_mask(data, rms=None, threshold=0.0, mask=None):
+    """
+    Returns a boolean mask which combines both the user provided mask and a
+    clip based on some noise level clip.
+
+    Args:
+        data (ndarray): The data cube of intensities or flux densities.
+        rms (optional[ndarray/float]): Either an array or a single value of the
+            uncertainty in the image. We assume that the uncertainty is
+            constant along the spectrum.
+        threshold (optional[float]): The level of sigma clipping to apply to
+            the data (based on the provided uncertainty).
+        mask (optional[ndarray]): User provided boolean mask.
+        axis (optional[int]): Axis along which to collapse the data.
+
+    Returns:
+        mask (ndarray): Boolean mask of which pixels to include.
+    """
+    rms = np.zeros(data.shape) if rms is None else rms
+    rms = np.atleast_1d(rms)
+    if rms.ndim == 2:
+        sigma_mask = abs(data) >= (threshold * rms)[None, :, :]
+    else:
+        sigma_mask = abs(data) >= threshold * rms
+    if mask is None:
+        mask = sigma_mask
+    else:
+        mask = np.logical_and(mask, sigma_mask)
+    return mask
+
+
+def get_intensity_weights(data, mask):
+    """
+    Returns the weights used for intensity weighted averages. Includes a small
+    level of noise so that the weights do not add up to zero along the spectral
+    axis.
+
+    Args:
+        data (ndarray): The data cube of intensities or flux densities.
+        mask (ndarray): The boolean mask of pixels to include.
+
+    Returns:
+        weights (ndarray): Array of same shape as data with the non-normalized
+            intensity weights with masked regions containing values ~1e-10.
+    """
+    noise = 1e-10 * np.random.rand(data.size).reshape(data.shape)
+    return np.where(mask, abs(data), noise)
+
+
+def integrated_intensity(data, dx=1.0, rms=None, threshold=0.0, mask=None,
+                         axis=0):
     """
     Returns the integrated intensity (commonly known as the zeroth moment).
 
     Args:
         data (ndarray): The data cube as an array with at least one dimension.
         dx (Optional[float]): The pixel scale of the ``axis'' dimension.
-        uncertainty (Optional[float]): The uncertainty on the
-            intensities given by ``data``. All uncertainties are assumed to be
-            the same. If not provided, the uncertainty on the centroid will not
-            be estimated. TODO: Allow for spatially varying uncertainties.
+        rms (Optional[float]): The uncertainty on the intensities given by
+            ``data``. All uncertainties are assumed to be the same. If not
+            provided, the uncertainty on the centroid will not be estimated.
         threshold (Optional[float]): All pixel values below this value will not
             be included in the calculation of the intensity weighted average.
         mask (Optional[ndarray]): A boolean mask (or such that it can be
@@ -33,32 +86,26 @@ def integrated(data, dx=1.0, uncertainty=None, threshold=None, mask=None,
             estimated. By default this will be the zeroth axis.
 
     Returns:
-        y_int (ndarray): The integrated intensity along the ``axis'' dimension
-            in each pixel. The units will be [data] * [dx], so typically
+        m0 (ndarray): The integrated intensity along the ``axis'' dimension in
+            each pixel. The units will be [data] * [dx], so typically
             Jy/beam m/s (or equivalently mJy/beam km/s).
-        y_int_sig (ndarray): The uncertainty on ``y_int'' if an uncertainty is
-            given, otherwise None.
+        dm0 (ndarray): The uncertainty on ``m0'' if an rms is given, otherwise
+            None.
     """
-
-    # Make sure the data is in the corret shape.
     data = np.moveaxis(data, axis, 0)
-    if mask is not None:
-        mask = np.moveaxis(mask, axis, 0)
-        if mask.shape != data.shape:
-            raise ValueError("Mistmatch in data and mask shapes.")
-
-    # Mask the data and calculate the intergrated intensity.
-    threshold = np.nanmin(data) if threshold is None else threshold
-    mask = np.logical_or(mask, data >= threshold)
-    npix = np.sum(mask, axis=0).astype(float)
-    y_int = np.trapz(np.where(mask, data, 0.0), dx=dx, axis=0)
-    if uncertainty is None:
-        return y_int, None
-    return y_int, npix * dx * uncertainty
+    mask = None if mask is None else np.moveaxis(mask, axis, 0)
+    mask = get_mask(data=data, rms=rms, threshold=threshold, mask=mask)
+    npix = np.sum(mask, axis=0)
+    npix_mask = np.where(npix > 1, 1, np.nan)
+    if mask.shape != data.shape:
+        raise ValueError("Mistmatch in data and mask shapes.")
+    m0 = np.trapz(data * mask, dx=dx, axis=0)
+    dm0 = None if rms is None else dx * rms * npix**0.5 * np.ones(m0.shape)
+    return m0 * npix_mask, dm0 * npix_mask
 
 
-def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
-                       mask=None, axis=0):
+def intensity_weighted_velocity(data, x0=0.0, dx=1.0, rms=None, threshold=None,
+                                mask=None, axis=0):
     """
     Returns the intensity weighted average velocity (commonly known as the
     first moment)
@@ -68,10 +115,9 @@ def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
         x0 (Optional[float]): The wavelength/frequency/velocity/etc. value for
             the zeroth pixel in the ``axis'' dimension.
         dx (Optional[float]): The pixel scale of the ``axis'' dimension.
-        uncertainty (Optional[float]): The uncertainty on the
-            intensities given by ``data``. All uncertainties are assumed to be
-            the same. If not provided, the uncertainty on the centroid will not
-            be estimated. TODO: Allow for spatially varying uncertainties.
+        rms (Optional[float]): The uncertainty on the intensities given by
+            ``data``, assumed to be constant along the spectral axis. Can be
+            either a 2D map or a single value.
         threshold (Optional[float]): All pixel values below this value will not
             be included in the calculation of the intensity weighted average.
         mask (Optional[ndarray]): A boolean mask (or such that it can be
@@ -86,44 +132,63 @@ def intensity_weighted(data, x0=0.0, dx=1.0, uncertainty=None, threshold=None,
         x_max_sig (ndarray): The uncertainty on ``x_max'' if an uncertainty is
             given, otherwise None.
     """
-
-    # Make sure the data is in the corret shape.
     data = np.moveaxis(data, axis, 0)
-    if mask is not None:
-        mask = np.moveaxis(mask, axis, 0)
-        if mask.shape != data.shape:
-            raise ValueError("Mistmatch in data and mask shapes.")
+    mask = None if mask is None else np.moveaxis(mask, axis, 0)
+    mask = get_mask(data=data, rms=rms, threshold=threshold, mask=mask)
+    if mask.shape != data.shape:
+        raise ValueError("Mistmatch in data and mask shapes.")
+    weights = get_intensity_weights(data, mask)
+    npix = np.sum(mask, axis=0)
+    npix_mask = np.where(npix > 1, 1, np.nan)
+    vpix = dx * np.arange(data.shape[0]) + x0
+    vpix = vpix[:, None, None] * np.ones(data.shape)
 
-    # Calculate a noisy weight model so weights don't add up to zero.
-    # Use to mask values which are NaN, masked or below the SNR threshold.
-    weight_mask = 1e-20 * np.random.randn(data.size).reshape(data.shape)
-    threshold = np.nanmin(data) if threshold is None else threshold
-    weights = np.where(data >= threshold, data, weight_mask)
-    if mask is not None:
-        weights = np.where(mask, weights, weight_mask)
-    npix = np.sum(weights == weight_mask, axis=0)
-    weights /= np.sum(weights, axis=0)
+    # Intensity weighted velocity.
+    m1 = np.average(vpix, weights=weights, axis=0)
+    if rms is None:
+        return m1 * npix_mask, None
 
-    # Calculate the average velocity.
-    v0_pnts = np.arange(data.shape[0])[:, None, None] * np.ones(data.shape)
-    v0 = np.average(v0_pnts, weights=weights, axis=0)
+    # Calculate uncertainty if rms provided.
+    dm1 = (vpix - m1[None, :, :]) * rms / np.sum(weights, axis=0)
+    dm1 = np.sqrt(np.sum(dm1**2, axis=0))
+    return m1 * npix_mask, dm1 * npix_mask
 
-    # If no uncertainty, skip uncertainty calculation.
-    if uncertainty is None:
-        return v0 * dx + x0, None
 
-    # Calculate uncertainty. Propagation of independent uncertainties.
-    # Not technically correct but better than nothing...
-    # TODO: tidy up this section.
-    v0 = v0 * dx + x0
-    v0_pnts = v0_pnts * dx + x0
-    if mask is None:
-        mask = abs(data) > threshold
-    A = np.sum(data * mask * v0_pnts, axis=0)
-    B = np.sum(data * mask, axis=0)
-    C = np.sum(v0_pnts**2, axis=0)
-    dv0 = v0 * uncertainty * np.hypot(np.sqrt(C) / A, np.sqrt(npix) / B)
-    return v0, dv0
+def intensity_weighted_dispersion(data, x0=0.0, dx=1.0, rms=None,
+                                  threshold=None, mask=None, axis=0):
+    """
+    Returns the intensity weighted velocity dispersion (second moment).
+    """
+
+    # Calculate the intensity weighted velocity first.
+    m1, dm1 = intensity_weighted_velocity(data=data, x0=x0, dx=dx, rms=rms,
+                                          threshold=threshold, mask=mask,
+                                          axis=axis)
+
+    # Rearrange the data to what we need.
+    data = np.moveaxis(data, axis, 0)
+    mask = None if mask is None else np.moveaxis(mask, axis, 0)
+    mask = get_mask(data=data, rms=rms, threshold=threshold, mask=mask)
+    if mask.shape != data.shape:
+        raise ValueError("Mistmatch in data and mask shapes.")
+    weights = get_intensity_weights(data, mask)
+    npix = np.sum(mask, axis=0)
+    npix_mask = np.where(npix > 1, 1, np.nan)
+    vpix = dx * np.arange(data.shape[0]) + x0
+    vpix = vpix[:, None, None] * np.ones(data.shape)
+
+    # Intensity weighted dispersion.
+    m1 = m1[None, :, :] * np.ones(data.shape)
+    #dm1 = None if dm1 is None else dm1[None, :, :] * np.ones(data.shape)
+    m2 = np.sum(weights * (vpix - m1)**2, axis=0) / np.sum(weights, axis=0)
+    m2 = np.sqrt(m2)
+    if rms is None:
+        return m2 * npix_mask, None
+
+    # Calculate the uncertainties.
+    dm2 = ((vpix - m1)**2 - m2**2) * rms / np.sum(weights, axis=0)
+    dm2 = np.sqrt(np.sum(dm2**2, axis=0)) / 2. / m2
+    return m2 * npix_mask, dm2 * npix_mask
 
 
 def peak_pixel(data, x0=0.0, dx=1.0, axis=0):

@@ -67,11 +67,11 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
         I0 (ndarray): Integrated intensity along provided axis.
         dI0 (ndarray): Uncertainty on I0 in the same units as I0.
     """
-    from bettermoments.methods import integrated
+    from bettermoments.methods import integrated_intensity
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    return integrated(data=data, dx=abs(chan), uncertainty=rms,
-                      threshold=threshold*rms, mask=_read_mask(mask, data),
-                      axis=axis)
+    return integrated_intensity(data=data, dx=abs(chan), rms=rms,
+                                rms=threshold, mask=_read_mask(mask, data),
+                                axis=axis)
 
 
 def collapse_maximum(velax, data, rms=None, N=5, axis=0):
@@ -113,7 +113,7 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
                    axis=0):
     """
     Collapses the cube using the intensity weighted average velocity (or first
-    moment map). This returns the line center, v0, and its uncertainty.
+    moment map). For a symmetric line profile this will be the line center.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -130,13 +130,47 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
-        v0 (ndarray): Line center in the same units as velax.
+        v0 (ndarray): Intensity weighted average velocity.
+        dv0 (ndarray): Uncertainty in the intensity weighted average velocity.
     """
     from bettermoments.methods import intensity_weighted
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    return intensity_weighted(data=data, x0=velax[0], dx=chan,
-                              uncertainty=rms, threshold=threshold*rms,
-                              mask=_read_mask(mask, data), axis=axis)
+    return intensity_weighted_velocity(data=data, x0=velax[0], dx=chan,
+                                       rms=rms, threshold=threshold,
+                                       mask=_read_mask(mask, data), axis=axis)
+
+def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
+                    axis=0):
+    """
+    Collapses the cube using the intensity-weighted average velocity dispersion
+    (or second moment). For a symmetric line profile this will be a measure of
+    the line width.
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
+        rms (Optional[float]): Noise per pixel. If none is specified, will be
+            calculated from the first and last N channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        mask (Optional[ndarray]): A boolean or integeter array masking certain
+            pixels to be excluded in the fitting. Can either be a full 3D mask,
+            a 2D channel mask, or a 1D spectrum mask.
+        threshold (Optional[float]): Clip any pixels below this RMS value.
+        axis (Optional[int]): Spectral axis to collapse the cube along.
+
+    Returns:
+        dV (ndarray): Intensity weighted velocity dispersion.
+        ddV (ndarray): Uncertainty in the intensity weighted velocity
+            disperison.
+    """
+    from bettermoments.methods import intensity_weighted_dispersion
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    return intensity_weighted_dispersion(data=data, x0=velax[0], dx=chan,
+                                         rms=rms, threshold=threshold,
+                                         mask=_read_mask(mask, data),
+                                         axis=axis)
 
 
 def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
@@ -327,8 +361,8 @@ def main():
                         help='Path to the FITS cube.')
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube. Current available '
-                             'methods are: quadratic, maximum, first, zeroth '
-                             'and width.')
+                             'methods are: quadratic, maximum, zeroth, first, '
+                             'second and width.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
@@ -392,6 +426,11 @@ def main():
         out = collapse_maximum(velax=velax, data=data, rms=args.rms, N=args.N,
                                axis=args.axis)
         v0, dv0, Fnu, dFnu = out
+
+    elif args.method == 'second':
+        dV, ddV = collapse_second(velax=velax, data=data, threshold=args.clip,
+                                  rms=args.rms, N=args.N, mask=args.mask,
+                                  axis=args.axis)
 
     elif args.method == 'first':
         v0, dv0 = collapse_first(velax=velax, data=data, threshold=args.clip,
