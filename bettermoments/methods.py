@@ -161,9 +161,9 @@ def intensity_weighted_dispersion(data, x0=0.0, dx=1.0, rms=None,
     """
 
     # Calculate the intensity weighted velocity first.
-    m1, dm1 = intensity_weighted_velocity(data=data, x0=x0, dx=dx, rms=rms,
-                                          threshold=threshold, mask=mask,
-                                          axis=axis)
+    m1 = intensity_weighted_velocity(data=data, x0=x0, dx=dx, rms=rms,
+                                     threshold=threshold, mask=mask,
+                                     axis=axis)[0]
 
     # Rearrange the data to what we need.
     data = np.moveaxis(data, axis, 0)
@@ -179,7 +179,6 @@ def intensity_weighted_dispersion(data, x0=0.0, dx=1.0, rms=None,
 
     # Intensity weighted dispersion.
     m1 = m1[None, :, :] * np.ones(data.shape)
-    #dm1 = None if dm1 is None else dm1[None, :, :] * np.ones(data.shape)
     m2 = np.sum(weights * (vpix - m1)**2, axis=0) / np.sum(weights, axis=0)
     m2 = np.sqrt(m2)
     if rms is None:

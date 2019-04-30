@@ -69,8 +69,8 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
     """
     from bettermoments.methods import integrated_intensity
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    return integrated_intensity(data=data, dx=abs(chan), rms=rms,
-                                rms=threshold, mask=_read_mask(mask, data),
+    return integrated_intensity(data=data, dx=abs(chan), threshold=threshold,
+                                rms=rms, mask=_read_mask(mask, data),
                                 axis=axis)
 
 
