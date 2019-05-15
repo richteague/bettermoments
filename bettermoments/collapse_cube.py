@@ -133,11 +133,10 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
         v0 (ndarray): Intensity weighted average velocity.
         dv0 (ndarray): Uncertainty in the intensity weighted average velocity.
     """
-    from bettermoments.methods import intensity_weighted
+    from bettermoments.methods import intensity_weighted_velocity as first
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    return intensity_weighted_velocity(data=data, x0=velax[0], dx=chan,
-                                       rms=rms, threshold=threshold,
-                                       mask=_read_mask(mask, data), axis=axis)
+    return first(data=data, x0=velax[0], dx=chan, rms=rms, threshold=threshold,
+                 mask=_read_mask(mask, data), axis=axis)
 
 def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
                     axis=0):
@@ -165,12 +164,10 @@ def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
         ddV (ndarray): Uncertainty in the intensity weighted velocity
             disperison.
     """
-    from bettermoments.methods import intensity_weighted_dispersion
+    from bettermoments.methods import intensity_weighted_dispersion as second
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    return intensity_weighted_dispersion(data=data, x0=velax[0], dx=chan,
-                                         rms=rms, threshold=threshold,
-                                         mask=_read_mask(mask, data),
-                                         axis=axis)
+    return second(data=data, x0=velax[0], dx=chan, rms=rms,
+                  threshold=threshold, mask=_read_mask(mask, data), axis=axis)
 
 
 def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
