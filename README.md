@@ -13,13 +13,13 @@
 
 ## Usage
 
-To start, clone the repository then in your shell run
+Note that this requires Python 3. To start, clone the repository then in your shell run
 
 ```bash
 $ pip install .
 ```
 
-to install this locally. **This currently only works with Python 3:** Then in any shell simply run
+to install this locally. Then in any shell simply run
 
 ```console
 $ bettermoments path/to/cube.fits
@@ -31,7 +31,7 @@ which will create lovely line peak and line centroid maps (with uncertainties!).
 $ bettermoments -h
 ```
 
-or refer to the [FAQ](https://github.com/richteague/bettermoments/blob/master/docs/FAQ.md) for more detail.
+or refer to the [FAQ](https://github.com/richteague/bettermoments/blob/master/docs/FAQ.md) for more detail. [Teague (2019)](https://iopscience.iop.org/article/10.3847/2515-5172/ab2125) provides more information about the generation of the statistical uncertainties on the more traditional moment maps.
 
 ## Currently Working On
 
