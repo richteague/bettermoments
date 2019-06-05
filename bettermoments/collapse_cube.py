@@ -329,7 +329,8 @@ def _write_header(path, bunit):
     for i in [1, 2]:
         for val in ['NAXIS', 'CTYPE', 'CRVAL', 'CDELT', 'CRPIX', 'CUNIT']:
             key = '%s%d' % (val, i)
-            new_header[key] = header[key]
+            if key in header.keys():
+                new_header[key] = header[key]
     try:
         new_header['RESTFRQ'] = header['RESTFRQ']
     except KeyError:
