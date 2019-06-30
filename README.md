@@ -7,7 +7,7 @@
 
 <p align='center'>
   <br/>
-  <img src="https://github.com/richteague/bettermoments/blob/master/docs/TWHya.png" width="435" height="435"><br/>
+  <img src="https://github.com/richteague/bettermoments/blob/master/docs/_static/TWHya.png" width="435" height="435"><br/>
   Measuring precise line-of-sight velocities from Doppler shifted lines is essential<br/>
   when looking for small scale deviations indicative of, for example, embedded planets.<br/>Do that with <b>bettermoments</b>.
 </p>
@@ -37,7 +37,6 @@ or refer to the [FAQ](https://github.com/richteague/bettermoments/blob/master/do
 ## Currently Working On
 
 * Analytical fits, e.g. Gaussians or Gauss-Hermite expansions.
-* Documentation.
 
 ## Attribution
 
