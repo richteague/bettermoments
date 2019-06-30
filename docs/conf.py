@@ -21,8 +21,6 @@ project = 'bettermoments'
 copyright = '2019, Richard Teague'
 author = 'Richard Teague'
 
-
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -33,7 +31,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'sphinx.ext.imgmath',
-    'nbsphinx',
+    # 'nbsphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
