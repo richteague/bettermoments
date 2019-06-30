@@ -13,27 +13,34 @@ from scipy.ndimage.filters import convolve1d
 
 def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
     """
-    Collapse the cube using the quadratic method. Will return the line center,
-    v0, and the uncertainty on this, as well as the line peak, Fnu, and the
-    uncertainty on that.
+    Collapse the cube using the quadratic method presented in `Teague &
+    Foreman-Mackey (2018)`_. Will return the line center, ``v0``, and the
+    uncertainty on this, ``dv0``, as well as the line peak, ``Fnu``, and the
+    uncertainty on that, ``dFnu``. This provides the sub-channel precision of
+    :func:`bettermoments.collapse_cube.collapse_first` with the robustness to
+    noise from :func:`bettermoments.collapse_cube.collapse_ninth`.
+
+    .. _Teague & Foreman-Mackey (2018): https://iopscience.iop.org/article/10.3847/2515-5172/aae265
 
     Args:
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux density or brightness temperature array. Assumes
-            that the first axis is the velocity axis.
+            that the zeroth axis is the velocity axis.
         linewidth (Optional[float]): Doppler width of the line. If specified
             will be used to smooth the data prior to the quadratic fit.
-        rms (Optional[float]): Noise per pixel. If none is specified, will be
-            calculated from the first and last N channels.
+        rms (Optional[float]): Noise per pixel. If ``None`` is specified,
+            this will be calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
-        axis (Optional[int]): Spectral axis to collapse the cube along.
+        axis (Optional[int]): Spectral axis to collapse the cube along, by
+            default ``axis=0``.
 
     Returns:
-        v0 (ndarray): Line center in the same units as velax.
-        dv0 (ndarray): Uncertainty on v0 in the same units as velax.
-        Fnu (ndarray): Line peak in the same units as the data.
-        dFnu (ndarray): Uncertainty in Fnu in the same units as the data.
+        ``v0`` (`ndarray`), ``dv0`` (`ndarray`), ``Fnu`` (`ndarray`), ``dFnu`` (`ndarray`):
+            ``v0``, the line center in the same units as ``velax`` with ``dv0``
+            as the uncertainty on ``v0`` in the same units as ``velax``.
+            ``Fnu`` is the line peak in the same units as the
+            ``data`` with associated uncertainties, ``dFnu``.
     """
     from bettermoments.methods import quadratic
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
@@ -47,10 +54,25 @@ def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
 
 def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
                     axis=0):
-    """
+    r"""
     Collapses the cube by integrating along the spectral axis. It will return
-    the integrated intensity along the spectral axis, I0, and the associated
-    uncertainty, dI0.
+    the integrated intensity along the spectral axis, ``M0``, and the
+    associated uncertainty, ``dM0``. Following `Teague (2019)`_ these are
+    calculated by,
+
+    .. math::
+        M_0 = \sum_{i}^N I_i \, \Delta v_{{\rm chan},\,i}
+
+    and
+
+    .. math::
+        M_0 = \sqrt{\sum_{i\,(I_i > 0)}^N \sigma_i^2 \cdot \Delta v_{{\rm chan},\,i}^2}
+
+    where :math:`\Delta v_i` and :math:`I_i` are the chanenl width and flux
+    density at the :math:`i^{\rm th}` channel, respectively and the sum goes
+    over the whole ``axis``.
+
+    .. _Teague (2019): https://iopscience.iop.org/article/10.3847/2515-5172/ab2125
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -61,11 +83,15 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
         threshold (Optional[float]): Clip any pixels below this RMS value.
+        mask (Optional[ndarray]): A boolean or integeter array masking certain
+            pixels to be excluded in the fitting. Can either be a full 3D mask,
+            a 2D channel mask, or a 1D spectrum mask.
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
-        I0 (ndarray): Integrated intensity along provided axis.
-        dI0 (ndarray): Uncertainty on I0 in the same units as I0.
+        ``M0`` (`ndarray`), ``dM0`` (`ndarray`):
+            ``M0``, the integrated intensity along provided axis and ``dM0``,
+            the uncertainty on ``M0`` in the same units as ``M0``.
     """
     from bettermoments.methods import integrated_intensity
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
@@ -76,62 +102,123 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
 
 def collapse_maximum(velax, data, rms=None, N=5, axis=0):
     """
-    Coallapses the cube by taking the velocity of the maximum intensity pixel
-    along the spectral axis. This is the 'ninth' moment in CASA's immoments
-    task. Can additionally return the peak value ('eighth moment'). This will
-    return the line center, v0, and its ucertainty, along with the like peak,
-    Fnu, and its uncertainty, dFnu.
+    A wrapper returning the result of both :func:`bettermoments.collapse_cube.collapse_eighth`
+    and :func:`bettermoments.collapse_cube.collapse_ninth`.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux densities or brightness temperature array. Assumes
             that the first axis is the velocity axis.
         rms (Optional[float]): Noise per pixel. If none is specified, will be
-            calculated from the first and last N channels.
+            calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
-        v0 (ndarray): Line center in the same units as velax.
-        dv0 (ndarray): Uncertainty on v0 in the same units as velax. Will be
-            the channel width.
-        Fnu (ndarray): If return_peak=True. Line peak in the same units as
-            the data.
-        dFnu (ndarray): If return_peak=True. Uncertainty in Fnu in the same
-            units as the data. Will be the RMS calculate from the first and
-            last channels.
+        ``M8`` (`ndarray`), ``dM8`` (`ndarray`), ``M9`` (`ndarray`), ``dM9`` (`ndarray`):
+            The peak value, ``M8``, and the associated uncertainty, ``dM8``.
+            The velocity value of the peak value, ``M9``, and the associated
+            uncertainty, ``dM9``.
     """
     from bettermoments.methods import peak_pixel
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    v0, dv0, Fnu = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
-    dFnu = rms * np.ones(v0.shape)
-    return v0, dv0, Fnu, dFnu
+    M9, dM9, M8 = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
+    dM8 = rms * np.ones(v0.shape)
+    return M8, dM8, M9, dM9
 
-
-def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
-                   axis=0):
+def collapse_eighth(data, rms=None, N=5, axis=0):
     """
-    Collapses the cube using the intensity weighted average velocity (or first
-    moment map). For a symmetric line profile this will be the line center.
+    Take the peak value along the provided axis. The uncertainty is the RMS
+    noise of the image.
+
+    Args:
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
+        rms (Optional[float]): Noise per pixel. If none is specified, will be
+            calculated from the first and last ``N`` channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        axis (Optional[int]): Spectral axis to collapse the cube along.
+
+    Returns:
+        ``M8`` (`ndarray`), ``dM8`` (`ndarray`):
+            The peak value, ``M8``, and the associated uncertainty, ``dM8``.
+    """
+    from bettermoments.methods import peak_pixel
+    velax = np.ones(size=data.shape[int(axis)])
+    rms, _ = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    _, _, M8 = peak_pixel(data=data, x0=0.0, dx=0.0, axis=axis)
+    dM8 = rms * np.ones(v0.shape)
+    return M8, dM8
+
+def collapse_ninth(velax, data, rms=None, N=5, axis=0):
+    """
+    Take the velocity of the peak intensity along the provided axis. The
+    uncertainty is half the channel width.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux densities or brightness temperature array. Assumes
             that the first axis is the velocity axis.
         rms (Optional[float]): Noise per pixel. If none is specified, will be
-            calculated from the first and last N channels.
+            calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
-        mask (Optional[ndarray]): A boolean or integeter array masking certain
-            pixels to be excluded in the fitting. Can either be a full 3D mask,
-            a 2D channel mask, or a 1D spectrum mask.
-        threshold (Optional[float]): Clip any pixels below this RMS value.
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
-        v0 (ndarray): Intensity weighted average velocity.
-        dv0 (ndarray): Uncertainty in the intensity weighted average velocity.
+        ``M9`` (`ndarray`), ``dM9`` (`ndarray`):
+            The velocity value of the peak value, ``M9``, and the associated
+            uncertainty, ``dM9``.
+    """
+    from bettermoments.methods import peak_pixel
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+    M9, dM9, _ = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
+    return M9, dM9
+
+def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
+                   axis=0):
+    r"""
+    Collapses the cube using the intensity weighted average velocity (or first
+    moment map). For a symmetric line profile this will be the line center,
+    however for highly non-symmetric line profiles, this will not give a
+    meaningful result. Following `Teague (2019)`_, the line center is given by,
+
+    .. math::
+        M_1 = \frac{\sum_i^N I_i v_i}{\sum_i^N I_i}
+
+    where :math:`v_i` and :math:`I_i` are the velocity and flux density at the
+    :math:`i^{\rm th}` channel, respectively and the sum goes over the whole
+    ``axis``. In addition, the uncertainty is given by,
+
+    .. math::
+        \delta M_1 = \sqrt{\sum_{i\,(I_i > 0)}^N \sigma_i^2 \cdot (v_i - M_1)^2}
+
+    where :math:`\sigma_i` is the rms noise.
+
+    .. _Teague (2019): https://iopscience.iop.org/article/10.3847/2515-5172/ab2125
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the zeroth axis is the velocity axis.
+        rms (Optional[float]): Noise per pixel. If none is specified, will be
+            calculated from the first and last ``N`` channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        threshold (Optional[float]): Clip any pixels below this RMS value.
+        mask (Optional[ndarray]): A boolean or integeter array masking certain
+            pixels to be excluded in the fitting. Can either be a full 3D mask,
+            a 2D channel mask, or a 1D spectrum mask.
+        axis (Optional[int]): Spectral axis to collapse the cube along. By
+            default this is the zeroth axis.
+
+    Returns:
+        ``M1`` (`ndarray`), ``dM1`` (`ndarray`):
+            ``M1``, the intensity weighted average velocity in units of
+            ``velax`` and ``dM1``, the uncertainty in the intensity weighted
+            average velocity with same units as ``v0``.
     """
     from bettermoments.methods import intensity_weighted_velocity as first
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
@@ -140,10 +227,24 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
 
 def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
                     axis=0):
-    """
+    r"""
     Collapses the cube using the intensity-weighted average velocity dispersion
     (or second moment). For a symmetric line profile this will be a measure of
-    the line width.
+    the line width. Following `Teague (2019)`_ this is calculated by,
+
+    .. math::
+        M_2 = \sqrt{\frac{\sum_i^N I_i (v_i - M_1)^2}{{\sum_i^N I_i}}}
+
+    where :math:`M_1` is the first moment and :math:`v_i` and :math:`I_i` are
+    the velocity and flux density at the :math:`i^{\rm th}` channel,
+    respectively. The uncertainty is given by,
+
+    .. math::
+        \delta M_2 &= \frac{1}{2 M_2} \cdot \sqrt{\sum_{i\,(I_i > 0)}^N \sigma_i^2 \cdot \big[(v_i - M_1)^2 - M_2^2\big]^2}
+
+    where :math:`\sigma_i` is the rms noise in the :math:`i^{\rm th}` channel.
+
+    .. _Teague (2019): https://iopscience.iop.org/article/10.3847/2515-5172/ab2125
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -160,9 +261,9 @@ def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
-        dV (ndarray): Intensity weighted velocity dispersion.
-        ddV (ndarray): Uncertainty in the intensity weighted velocity
-            disperison.
+        ``M2`` (ndarray), ``dM2`` (ndarray):
+            ``M2`` is the intensity weighted velocity dispersion with units of
+            ``velax``.  ``dM2`` is the unceratinty of ``M2`` in the same units.
     """
     from bettermoments.methods import intensity_weighted_dispersion as second
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
@@ -172,11 +273,28 @@ def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
 
 def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
                    mask=None, axis=0):
-    """
+    r"""
     Returns an effective width, a rescaled ratio of the integrated intensity
     and the line peak. For a Gaussian line profile this would be the Doppler
-    width. This should be more robust against noise than second moment maps.
-    This returns all four parameters.
+    width as the total intensity is given by,
+
+    .. math::
+        M_0 = \sum_{i}^N I_i \, \Delta v_{{\rm chan},\,i}
+
+    where :math:`\Delta v_i` and :math:`I_i` are the chanenl width and flux
+    density at the :math:`i^{\rm th}` channel. If the line profile is Gaussian,
+    then equally
+
+    .. math::
+        M_0 = \sqrt{\pi} \times F_{\nu} \times \Delta V
+
+    where :math:`F_{\nu}` is the peak value of the line and :math:`\Delta V` is
+    the Doppler width of the line. As :math:`M_0` and :math:`F_{\nu}` are
+    readily calculated using :func:`bettermoments.collapse_cube.collapse_zeroth`
+    and :func:`bettermoments.collapse_cube.collapse_quadratic`, respectively,
+    :math:`\Delta V` can calculated through :math:`\Delta V = M_{0} \, / \,
+    (\sqrt{\pi} \, F_{\nu})`. This should be more robust against noise than
+    second moment maps.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -184,8 +302,8 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
             that the first axis is the velocity axis.
         linewidth (Optional[float]): Doppler width of the line. If specified
             will be used to smooth the data prior to the quadratic fit.
-        rms (Optional[float]): Noise per pixel. If none is specified, will be
-            calculated from the first and last N channels.
+        rms (Optional[float]): Noise per pixel. If ``None`` is specified, this
+            will be calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
         threshold (Optional[float]): Clip any pixels below this RMS value.
@@ -195,16 +313,9 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
-        I0 (ndarray): Integrated intensity along provided axis.
-        dI0 (ndarray): Uncertainty on I0 in the same units as I0.
-        v0 (ndarray): Line center in the same units as velax.
-        dv0 (ndarray): Uncertainty on v0 in the same units as velax. Will be
-            the channel width.
-        Fnu (ndarray): Line peak in the same units as the data.
-        dFnu (ndarray): Uncertainty in Fnu in the same units as the data. Will
-            be the RMS calculate from the first and last channels.
-        dV (ndarray): Effective velocity dispersion.
-        ddV (ndarray): Uncertainty on the velocity dispersion.
+        ``dV`` (`ndarray`), ``ddV`` (`ndarray`):
+            The effective velocity dispersion, ``dV`` and ``ddV``, the
+            associated uncertainty.
     """
     from bettermoments.methods import integrated, quadratic
     mask = _read_mask(mask, data)
@@ -220,12 +331,12 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
                                    linewidth=linewidth, axis=axis)
     dV = I0 / Fnu / np.sqrt(np.pi)
     ddV = dV * np.hypot(dFnu / Fnu, dI0 / I0)
-    return I0, dI0, v0, dv0, Fnu, dFnu, dV, ddV
+    return dV, ddV
 
 
 def _get_cube(path):
     """Return the data and velocity axis from the cube."""
-    return _get_data(path), _get_velax(path)
+    return _get_data(path), _get_velax(path), _get_bunits(path)
 
 
 def _get_data(path):
@@ -311,6 +422,28 @@ def _collapse_beamtable(path):
         return abs(header['cdelt1']), abs(header['cdelt2']), 0.0
 
 
+def _get_bunits(path):
+    """Return the dictionary of units."""
+    bunits = {}
+    flux_unit = fits.getheader(path)['bunit']
+    bunits['M0'] = '{} m/s'.format(flux_unit)
+    bunits['dM0'] = '{} m/s'.format(flux_unit)
+    bunits['M1'] = 'm/s'
+    bunits['dM1'] = 'm/s'
+    bunits['M2'] = 'm/s'
+    bunits['dM2'] = 'm/s'
+    bunits['M8'] = '{}'.format(flux_unit)
+    bunits['dM8'] = '{}'.format(flux_unit)
+    bunits['M9'] = 'm/s'
+    bunits['dM9'] = 'm/s'
+    bunits['v0'] = 'm/s'
+    bunits['dv0'] = 'm/s'
+    bunits['Fnu'] = '{}'.format(flux_unit)
+    bunits['dFnu'] = '{}'.format(flux_unit)
+    bunits['dV'] = 'm/s'
+    bunits['ddV'] = 'm/s'
+    return bunits
+
 def _write_header(path, bunit):
     """Write a new header for the saved file."""
     header = fits.getheader(path, copy=True)
@@ -391,11 +524,10 @@ def main():
     args = parser.parse_args()
     args.method = args.method.lower()
 
-    # Read in the cube [Jy/beam] and velocity axis [m/s].
+    # Read in the cube and the units.
 
-    data, velax = _get_cube(args.path)
-    I0, dI0, dV, ddV = None, None, None, None
-    v0, dv0, Fnu, dFnu = None, None, None, None
+    data, velax, bunits = _get_cube(args.path)
+    tosave = {}
 
     # If resampled is requested, average over the data and convolve with a top
     # hat function to minimic the channelization of ALMA.
@@ -412,40 +544,56 @@ def main():
     # Collapse the cube with the approrpriate method.
 
     if not args.silent:
-        print("Calculating maps.")
+        print("Calculating maps...")
 
-    if args.method == 'quadratic':
-        out = collapse_quadratic(velax=velax, data=data, N=args.N,
-                                 axis=args.axis, linewidth=args.linewidth,
-                                 rms=args.rms)
-        v0, dv0, Fnu, dFnu = out
-
-    elif (args.method == 'maximum' or args.method == 'eighth'):
-        out = collapse_maximum(velax=velax, data=data, rms=args.rms, N=args.N,
-                               axis=args.axis)
-        v0, dv0, Fnu, dFnu = out
-
-    elif args.method == 'second':
-        dV, ddV = collapse_second(velax=velax, data=data, threshold=args.clip,
+    if args.method == 'zeroth':
+        M0, dM0 = collapse_zeroth(velax=velax, data=data, threshold=args.clip,
                                   rms=args.rms, N=args.N, mask=args.mask,
                                   axis=args.axis)
+        tosave['M0'], tosave['dM0'] = dM0, dM0
 
     elif args.method == 'first':
-        v0, dv0 = collapse_first(velax=velax, data=data, threshold=args.clip,
+        M1, dM1 = collapse_first(velax=velax, data=data, threshold=args.clip,
                                  rms=args.rms, N=args.N, mask=args.mask,
                                  axis=args.axis)
+        tosave['M1'], tosave['dM1'] = dM1, dM1
 
-    elif args.method == 'zeroth':
-        out = collapse_zeroth(velax=velax, data=data, threshold=args.clip,
-                              rms=args.rms, N=args.N, mask=args.mask,
-                              axis=args.axis)
-        I0, dI0 = out
+    elif args.method == 'second':
+        M2, dM2 = collapse_second(velax=velax, data=data, threshold=args.clip,
+                                  rms=args.rms, N=args.N, mask=args.mask,
+                                  axis=args.axis)
+        tosave['M2'], tosave['dM2'] = M2, dM2
+
+    elif args.method == 'eighth':
+        M8, dM8 = collapse_eighth(data=data, rms=args.rms, N=args.N,
+                                  axis=args.axis)
+        tosave['M8'], tosave['dM8'] = M8, dM8
+
+    elif args.method == 'ninth':
+        M9, dM9 = collapse_ninth(velax=velax, data=data, rms=args.rms,
+                                 N=args.N, axis=args.axis)
+        tosave['M9'], tosave['dM9'] = M9, dM9
+
+    elif args.method == 'maximum':
+        M8, dM8, M9, dM9 = collapse_maximum(velax=velax, data=data,
+                                            rms=args.rms, N=args.N,
+                                            axis=args.axis)
+        tosave['M8'], tosave['dM8'] = M8, dM8
+        tosave['M9'], tosave['dM9'] = M9, dM9
+
+    elif args.method == 'quadratic':
+        v0, dv0, Fnu, dFnu = collapse_quadratic(velax=velax, data=data,
+                                                N=args.N, axis=args.axis,
+                                                linewidth=args.linewidth,
+                                                rms=args.rms)
+        tosave['v0'], tosave['dv0'] = v0, dv0
+        tosave['Fnu'], tosave['dFnu'] = Fnu, dFnu
 
     elif args.method == 'width':
-        out = collapse_width(velax=velax, data=data, threshold=args.clip,
-                             rms=args.rms, N=args.N, mask=args.mask,
-                             axis=args.axis, linewidth=args.linewidth)
-        I0, dI0, v0, dv0, Fnu, dFnu, dV, ddV = out
+        dV, ddV = collapse_width(velax=velax, data=data, threshold=args.clip,
+                                 rms=args.rms, N=args.N, mask=args.mask,
+                                 axis=args.axis, linewidth=args.linewidth)
+        tosave['dV'], tosave['ddV'] = dV, ddV
 
     else:
         raise ValueError("Unknown method.")
@@ -453,19 +601,9 @@ def main():
     # Mask the data. If no uncertainties are found for dFnu, use the RMS.
 
     if args.clip > 0.0 and not args.nomask:
-
         if not args.silent:
-            print("Masking maps.")
-
-        if Fnu is None:
-            signal = collapse_maximum(velax=velax, data=data)[2]
-        else:
-            signal = Fnu
-        if dFnu is None:
-            noise = collapse_maximum(velax=velax, data=data)[3]
-        else:
-            noise = dFnu
-
+            print("Masking maps...")
+        signal, noise = collapse_eighth(velax=velax, data=data)
         rndm = abs(1e-10 * np.random.randn(noise.size).reshape(noise.shape))
         mask = np.where(noise != 0.0, noise, rndm)
         mask = np.where(np.isfinite(mask), mask, rndm)
@@ -477,44 +615,13 @@ def main():
     # Save the files.
 
     if not args.silent:
-        print("Saving maps.")
+        print("Saving maps...")
 
-    if I0 is not None:
-        I0 = np.where(mask, I0, args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_I0.fits'), I0,
-                    overwrite=args.overwrite, bunit='Jy/beam m/s')
-    if dI0 is not None:
-        dI0 = np.where(mask, abs(dI0), args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_dI0.fits'), dI0,
-                    overwrite=args.overwrite, bunit='Jy/beam m/s')
-
-    if v0 is not None:
-        v0 = np.where(mask, v0, args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_v0.fits'), v0,
-                    overwrite=args.overwrite, bunit='m/s')
-    if dv0 is not None:
-        dv0 = np.where(mask, abs(dv0), args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_dv0.fits'), dv0,
-                    overwrite=args.overwrite, bunit='m/s')
-
-    if Fnu is not None:
-        Fnu = np.where(mask, Fnu, args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_Fnu.fits'), Fnu,
-                    overwrite=args.overwrite)
-    if dFnu is not None:
-        dFnu = np.where(mask, abs(dFnu), args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_dFnu.fits'), dFnu,
-                    overwrite=args.overwrite)
-
-    if dV is not None:
-        dV = np.where(mask, dV, args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_dV.fits'), dV,
-                    overwrite=args.overwrite, bunit='m/s')
-    if ddV is not None:
-        ddV = np.where(mask, abs(ddV), args.fill)
-        _save_array(args.path, args.path.replace('.fits', '_ddV.fits'), ddV,
-                    overwrite=args.overwrite, bunit='m/s')
-
+    for map_name in tosave.keys():
+        map = np.where(mask, tosave[map_name], args.fill)
+        out = args.path.replace('.fits', '_{}.fits'.format(map_name))
+        bunit = bunits[map_name]
+        _save_array(args.path, out, map, overwrite=args.overwrite, bunit=bunit)
 
 if __name__ == '__main__':
     main()
