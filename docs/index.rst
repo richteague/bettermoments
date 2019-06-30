@@ -1,7 +1,15 @@
 bettermoments
 =============
 
-``bettermoments`` creates moment maps of spectral line data and their
+   .. image:: _static/TWHya.png
+      :width: 435px
+      :height: 435px
+      :scale: 100 %
+      :alt: TWHya
+      :align: center
+
+
+**bettermoments** creates moment maps of spectral line data and their
 associated uncertainties. The command-line interface makes it as seamless as
 possible. The ``quadratic`` method is described in detail in `Teague & Foreman-Mackey
 (2018)`_ while the uncertainties associated with more typical moment maps can
