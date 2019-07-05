@@ -146,10 +146,10 @@ def collapse_eighth(data, rms=None, N=5, axis=0):
             The peak value, ``M8``, and the associated uncertainty, ``dM8``.
     """
     from bettermoments.methods import peak_pixel
-    velax = np.ones(size=data.shape[int(axis)])
+    velax = np.ones(data.shape[int(axis)])
     rms, _ = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     _, _, M8 = peak_pixel(data=data, x0=0.0, dx=0.0, axis=axis)
-    dM8 = rms * np.ones(v0.shape)
+    dM8 = rms * np.ones(M8.shape)
     return M8, dM8
 
 def collapse_ninth(velax, data, rms=None, N=5, axis=0):
@@ -603,7 +603,7 @@ def main():
     if args.clip > 0.0 and not args.nomask:
         if not args.silent:
             print("Masking maps...")
-        signal, noise = collapse_eighth(velax=velax, data=data)
+        signal, noise = collapse_eighth(data=data)
         rndm = abs(1e-10 * np.random.randn(noise.size).reshape(noise.shape))
         mask = np.where(noise != 0.0, noise, rndm)
         mask = np.where(np.isfinite(mask), mask, rndm)
