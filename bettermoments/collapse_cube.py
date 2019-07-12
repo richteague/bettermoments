@@ -317,11 +317,13 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
             The effective velocity dispersion, ``dV`` and ``ddV``, the
             associated uncertainty.
     """
-    from bettermoments.methods import integrated, quadratic
+    from bettermoments.methods import integrated_intensity, quadratic
     mask = _read_mask(mask, data)
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    I0, dI0 = integrated(data=data, dx=chan, uncertainty=rms,
-                         threshold=threshold*rms, mask=mask, axis=axis)
+    I0, dI0 = integrated_intensity(data=data, dx=abs(chan),
+                                   threshold=threshold, rms=rms,
+                                   mask=_read_mask(mask, data),
+                                   axis=axis)
     if linewidth > 0.0:
         linewidth = abs(linewidth / chan / np.sqrt(2.))
     else:
@@ -390,7 +392,7 @@ def _estimate_RMS(data, N=5):
 
 def _read_mask(mask, data):
     """Read in the mask and make sure it is the same shape as the data."""
-    if mask:
+    if mask is not None:
         mask = _get_data(mask)
         if mask.shape != data.shape:
             raise ValueError("Mismatch in mask and data shape.")
