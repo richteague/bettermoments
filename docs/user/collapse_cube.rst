@@ -19,9 +19,9 @@ Moment Maps
 Implementation of traditional moment-map methods. See the `CASA documentation
 <https://casa.nrao.edu/docs/CasaRef/image.moments.html>`_ for more information.
 
-.. autofunction:: bettermoments.collapse_cube.collapse_zeroth
+.. autofunction:: bettermoments.collapse_cube.collapse_zeroth`
 
-.. autofunction:: bettermoments.collapse_cube.collapse_first
+.. autofunction:: bettermoments.collapse_cube.collapse_first`
 
 .. autofunction:: bettermoments.collapse_cube.collapse_second
 
