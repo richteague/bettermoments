@@ -12,7 +12,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('..'))
 
 
 # -- Project information -----------------------------------------------------
@@ -35,8 +35,7 @@ extensions = [
 ]
 
 # Is this really necessary...
-autodoc_mock_imports = ['astropy', 'scipy', 'argparse',
-                        'bettermoments', 'numpy']
+autodoc_mock_imports = ['astropy', 'scipy', 'argparse', 'numpy']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
