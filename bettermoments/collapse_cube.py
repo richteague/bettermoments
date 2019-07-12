@@ -318,7 +318,6 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
             associated uncertainty.
     """
     from bettermoments.methods import integrated_intensity, quadratic
-    mask = _read_mask(mask, data)
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     I0, dI0 = integrated_intensity(data=data, dx=abs(chan),
                                    threshold=threshold, rms=rms,
@@ -390,14 +389,14 @@ def _estimate_RMS(data, N=5):
     return rms * np.ones(data[0].shape)
 
 
-def _read_mask(mask, data):
+def _read_mask(mask_path, data):
     """Read in the mask and make sure it is the same shape as the data."""
-    if mask is not None:
-        mask = _get_data(mask)
+    if mask_path is not None:
+        mask = _get_data(mask_path)
         if mask.shape != data.shape:
             raise ValueError("Mismatch in mask and data shape.")
     else:
-        mask = None
+        mask = np.ones(data.shape)
     return mask
 
 
