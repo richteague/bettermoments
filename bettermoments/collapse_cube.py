@@ -52,7 +52,7 @@ def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
                      uncertainty=np.ones(data.shape)*rms, axis=axis)
 
 
-def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
+def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask_path=None,
                     axis=0):
     r"""
     Collapses the cube by integrating along the spectral axis. It will return
@@ -83,9 +83,8 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
         threshold (Optional[float]): Clip any pixels below this RMS value.
-        mask (Optional[ndarray]): A boolean or integeter array masking certain
-            pixels to be excluded in the fitting. Can either be a full 3D mask,
-            a 2D channel mask, or a 1D spectrum mask.
+        mask_path (Optional[str]): Path to a file containing a boolean mask,
+            either stored as `.FITS` or `.npy` file.
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
@@ -96,8 +95,7 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask=None,
     from bettermoments.methods import integrated_intensity
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     return integrated_intensity(data=data, dx=abs(chan), threshold=threshold,
-                                rms=rms, mask=_read_mask(mask, data),
-                                axis=axis)
+                                rms=rms, mask_path=mask_path, axis=axis)
 
 
 def collapse_maximum(velax, data, rms=None, N=5, axis=0):
@@ -177,7 +175,7 @@ def collapse_ninth(velax, data, rms=None, N=5, axis=0):
     M9, dM9, _ = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
     return M9, dM9
 
-def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
+def collapse_first(velax, data, rms=None, N=5, threshold=None, mask_path=None,
                    axis=0):
     r"""
     Collapses the cube using the intensity weighted average velocity (or first
@@ -208,9 +206,8 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
         threshold (Optional[float]): Clip any pixels below this RMS value.
-        mask (Optional[ndarray]): A boolean or integeter array masking certain
-            pixels to be excluded in the fitting. Can either be a full 3D mask,
-            a 2D channel mask, or a 1D spectrum mask.
+        mask_path (Optional[str]): Path to a file containing a boolean mask,
+            either stored as `.FITS` or `.npy` file.
         axis (Optional[int]): Spectral axis to collapse the cube along. By
             default this is the zeroth axis.
 
@@ -223,9 +220,9 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask=None,
     from bettermoments.methods import intensity_weighted_velocity as first
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     return first(data=data, x0=velax[0], dx=chan, rms=rms, threshold=threshold,
-                 mask=_read_mask(mask, data), axis=axis)
+                 mask_path=mask_path, axis=axis)
 
-def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
+def collapse_second(velax, data, rms=None, N=5, threshold=None, mask_path=None,
                     axis=0):
     r"""
     Collapses the cube using the intensity-weighted average velocity dispersion
@@ -254,9 +251,8 @@ def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
             calculated from the first and last N channels.
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
-        mask (Optional[ndarray]): A boolean or integeter array masking certain
-            pixels to be excluded in the fitting. Can either be a full 3D mask,
-            a 2D channel mask, or a 1D spectrum mask.
+        mask_path (Optional[str]): Path to a file containing a boolean mask,
+            either stored as `.FITS` or `.npy` file.
         threshold (Optional[float]): Clip any pixels below this RMS value.
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
@@ -268,11 +264,11 @@ def collapse_second(velax, data, rms=None, N=5, threshold=None, mask=None,
     from bettermoments.methods import intensity_weighted_dispersion as second
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     return second(data=data, x0=velax[0], dx=chan, rms=rms,
-                  threshold=threshold, mask=_read_mask(mask, data), axis=axis)
+                  threshold=threshold, mask_path=mask_path, axis=axis)
 
 
 def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
-                   mask=None, axis=0):
+                   mask_path=None, axis=0):
     r"""
     Returns an effective width, a rescaled ratio of the integrated intensity
     and the line peak. For a Gaussian line profile this would be the Doppler
@@ -307,9 +303,8 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
         N (Optional[int]): Number of channels to use in the estimation of the
             noise.
         threshold (Optional[float]): Clip any pixels below this RMS value.
-        mask (Optional[ndarray]): A boolean or integeter array masking certain
-            pixels to be excluded in the fitting. Can either be a full 3D mask,
-            a 2D channel mask, or a 1D spectrum mask.
+        mask_path (Optional[str]): Path to a file containing a boolean mask,
+            either stored as `.FITS` or `.npy` file.
         axis (Optional[int]): Spectral axis to collapse the cube along.
 
     Returns:
@@ -321,8 +316,7 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     I0, dI0 = integrated_intensity(data=data, dx=abs(chan),
                                    threshold=threshold, rms=rms,
-                                   mask=_read_mask(mask, data),
-                                   axis=axis)
+                                   mask_path=mask_path, axis=axis)
     if linewidth > 0.0:
         linewidth = abs(linewidth / chan / np.sqrt(2.))
     else:
@@ -380,26 +374,6 @@ def _read_spectral_axis(header):
     return header['crval3'] + specax * header['cdelt3']
 
 
-def _estimate_RMS(data, N=5):
-    """Return the estimated RMS in the first and last N channels."""
-    x1, x2 = np.percentile(np.arange(data.shape[2]), [45, 55])
-    y1, y2 = np.percentile(np.arange(data.shape[1]), [45, 55])
-    x1, x2, y1, y2, N = int(x1), int(x2), int(y1), int(y2), int(N)
-    rms = np.nanstd([data[:N, y1:y2, x1:x2], data[-N:, y1:y2, x1:x2]])
-    return rms * np.ones(data[0].shape)
-
-
-def _read_mask(mask_path, data):
-    """Read in the mask and make sure it is the same shape as the data."""
-    if mask_path is not None:
-        mask = _get_data(mask_path)
-        if mask.shape != data.shape:
-            raise ValueError("Mismatch in mask and data shape.")
-    else:
-        mask = np.ones(data.shape)
-    return mask
-
-
 def _verify_data(data, velax, rms=None, N=5, axis=0):
     """Veryify the data shape and read in image properties."""
     if data.shape[axis] != velax.size:
@@ -408,6 +382,15 @@ def _verify_data(data, velax, rms=None, N=5, axis=0):
         rms = _estimate_RMS(data=data, N=N)
     chan = np.diff(velax).mean()
     return rms, chan
+
+
+def _estimate_RMS(data, N=5):
+    """Return the estimated RMS in the first and last N channels."""
+    x1, x2 = np.percentile(np.arange(data.shape[2]), [45, 55])
+    y1, y2 = np.percentile(np.arange(data.shape[1]), [45, 55])
+    x1, x2, y1, y2, N = int(x1), int(x2), int(y1), int(y2), int(N)
+    rms = np.nanstd([data[:N, y1:y2, x1:x2], data[-N:, y1:y2, x1:x2]])
+    return rms * np.ones(data[0].shape)
 
 
 def _collapse_beamtable(path):
@@ -508,7 +491,7 @@ def main():
                              'Same units as the brightness unit.')
     parser.add_argument('-N', default=5, type=int,
                         help='Number of end channels to use to estimate RMS.')
-    parser.add_argument('-mask', default='',
+    parser.add_argument('-mask', default=None,
                         help='Path to the mask FITS cube. Must have the same '
                              'shape as the input data.')
     parser.add_argument('-axis', default=0, type=int,
@@ -549,19 +532,19 @@ def main():
 
     if args.method == 'zeroth':
         M0, dM0 = collapse_zeroth(velax=velax, data=data, threshold=args.clip,
-                                  rms=args.rms, N=args.N, mask=args.mask,
+                                  rms=args.rms, N=args.N, mask_path=args.mask,
                                   axis=args.axis)
-        tosave['M0'], tosave['dM0'] = dM0, dM0
+        tosave['M0'], tosave['dM0'] = M0, dM0
 
     elif args.method == 'first':
         M1, dM1 = collapse_first(velax=velax, data=data, threshold=args.clip,
-                                 rms=args.rms, N=args.N, mask=args.mask,
+                                 rms=args.rms, N=args.N, mask_path=args.mask,
                                  axis=args.axis)
-        tosave['M1'], tosave['dM1'] = dM1, dM1
+        tosave['M1'], tosave['dM1'] = M1, dM1
 
     elif args.method == 'second':
         M2, dM2 = collapse_second(velax=velax, data=data, threshold=args.clip,
-                                  rms=args.rms, N=args.N, mask=args.mask,
+                                  rms=args.rms, N=args.N, mask_path=args.mask,
                                   axis=args.axis)
         tosave['M2'], tosave['dM2'] = M2, dM2
 
@@ -592,7 +575,7 @@ def main():
 
     elif args.method == 'width':
         dV, ddV = collapse_width(velax=velax, data=data, threshold=args.clip,
-                                 rms=args.rms, N=args.N, mask=args.mask,
+                                 rms=args.rms, N=args.N, mask_path=args.mask,
                                  axis=args.axis, linewidth=args.linewidth)
         tosave['dV'], tosave['ddV'] = dV, ddV
 

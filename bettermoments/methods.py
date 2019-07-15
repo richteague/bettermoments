@@ -16,36 +16,46 @@ try:
 except ImportError:
     gaussian_filter1d = None
 
+def _read_mask_path(mask_path, data):
+    """Read in the mask and make sure it is the same shape as the data."""
+    if mask_path is not None:
+        extension = mask_path.split('.')[-1].lower()
+        if extension == 'fits':
+            mask = _get_data(mask_path)
+        elif extension == 'npy':
+            mask = np.load(mask_path)
+        else:
+            raise ValueError("Mask must be a `.fits` or `.npy` file.")
+        if mask.shape != data.shape:
+            raise ValueError("Mismatch in mask and data shape.")
+    else:
+        mask = np.ones(data.shape)
+    return mask.astype('bool')
 
-def get_mask(data, rms=None, threshold=0.0, mask=None):
+def _threshold_mask(data, mask, rms=None, threshold=0.0):
     """
-    Returns a boolean mask which combines both the user provided mask and a
-    clip based on some noise level clip.
+    Combines the provided mask with a sigma mask.
 
     Args:
         data (ndarray): The data cube of intensities or flux densities.
-        rms (optional[ndarray/float]): Either an array or a single value of the
+        mask (ndarray): User provided boolean mask from ``_read_mask_path``.
+        rms (Optional[ndarray/float]): Either an array or a single value of the
             uncertainty in the image. We assume that the uncertainty is
             constant along the spectrum.
-        threshold (optional[float]): The level of sigma clipping to apply to
+        threshold (Optional[float]): The level of sigma clipping to apply to
             the data (based on the provided uncertainty).
-        mask (optional[ndarray]): User provided boolean mask.
-        axis (optional[int]): Axis along which to collapse the data.
 
     Returns:
         mask (ndarray): Boolean mask of which pixels to include.
     """
-    rms = np.zeros(data.shape) if rms is None else rms
+    if rms is None or threshold <= 0.0:
+        return mask.astype('bool')
     rms = np.atleast_1d(rms)
     if rms.ndim == 2:
         sigma_mask = abs(data) >= (threshold * rms)[None, :, :]
     else:
         sigma_mask = abs(data) >= threshold * rms
-    if mask is None:
-        mask = sigma_mask
-    else:
-        mask = np.logical_and(mask, sigma_mask)
-    return mask
+    return np.logical_and(mask, sigma_mask).astype('bool')
 
 
 def get_intensity_weights(data, mask):
@@ -66,7 +76,7 @@ def get_intensity_weights(data, mask):
     return np.where(mask, abs(data), noise)
 
 
-def integrated_intensity(data, dx=1.0, rms=None, threshold=0.0, mask=None,
+def integrated_intensity(data, dx=1.0, rms=None, threshold=0.0, mask_path=None,
                          axis=0):
     """
     Returns the integrated intensity (commonly known as the zeroth moment).
@@ -79,9 +89,9 @@ def integrated_intensity(data, dx=1.0, rms=None, threshold=0.0, mask=None,
             provided, the uncertainty on the centroid will not be estimated.
         threshold (Optional[float]): All pixel values below this value will not
             be included in the calculation of the intensity weighted average.
-        mask (Optional[ndarray]): A boolean mask (or such that it can be
-            treated as one) of pixels to include in the calculation. Must be
-            the same shape as the data array.
+        mask_path (Optional[ndarray]): A path to a boolean mask to apply to the
+            data. Must be in either ``.fits`` or ``.npy`` format and must be in
+            the same shape as ``data``.
         axis (Optional[int]): The axis along which the centroid should be
             estimated. By default this will be the zeroth axis.
 
@@ -92,20 +102,20 @@ def integrated_intensity(data, dx=1.0, rms=None, threshold=0.0, mask=None,
         dm0 (ndarray): The uncertainty on ``m0'' if an rms is given, otherwise
             None.
     """
+    mask = _read_mask_path(mask_path=mask_path, data=data)
     data = np.moveaxis(data, axis, 0)
-    mask = None if mask is None else np.moveaxis(mask, axis, 0)
-    mask = get_mask(data=data, rms=rms, threshold=threshold, mask=mask)
+    mask = np.moveaxis(mask, axis, 0)
+    mask = _threshold_mask(data=data, mask=mask, rms=rms, threshold=threshold)
     npix = np.sum(mask, axis=0)
-    npix_mask = np.where(npix > 1, 1, np.nan)
-    if mask.shape != data.shape:
-        raise ValueError("Mistmatch in data and mask shapes.")
     m0 = np.trapz(data * mask, dx=dx, axis=0)
-    dm0 = None if rms is None else dx * rms * npix**0.5 * np.ones(m0.shape)
-    return m0 * npix_mask, dm0 * npix_mask
+    if rms is None:
+        return np.where(npix > 1, m0, np.nan)
+    dm0 = dx * rms * npix**0.5 * np.ones(m0.shape)
+    return np.where(npix > 1, m0, np.nan), np.where(npix > 1, dm0, np.nan)
 
 
 def intensity_weighted_velocity(data, x0=0.0, dx=1.0, rms=None, threshold=None,
-                                mask=None, axis=0):
+                                mask_path=None, axis=0):
     """
     Returns the intensity weighted average velocity (commonly known as the
     first moment)
@@ -120,9 +130,9 @@ def intensity_weighted_velocity(data, x0=0.0, dx=1.0, rms=None, threshold=None,
             either a 2D map or a single value.
         threshold (Optional[float]): All pixel values below this value will not
             be included in the calculation of the intensity weighted average.
-        mask (Optional[ndarray]): A boolean mask (or such that it can be
-            treated as one) of pixels to include in the calculation. Must be
-            the same shape as the data array.
+        mask_path (Optional[ndarray]): A path to a boolean mask to apply to the
+            data. Must be in either ``.fits`` or ``.npy`` format and must be in
+            the same shape as ``data``.
         axis (Optional[int]): The axis along which the centroid should be
             estimated. By default this will be the zeroth axis.
 
@@ -132,47 +142,44 @@ def intensity_weighted_velocity(data, x0=0.0, dx=1.0, rms=None, threshold=None,
         x_max_sig (ndarray): The uncertainty on ``x_max'' if an uncertainty is
             given, otherwise None.
     """
+    mask = _read_mask_path(mask_path=mask_path, data=data)
     data = np.moveaxis(data, axis, 0)
-    mask = None if mask is None else np.moveaxis(mask, axis, 0)
-    mask = get_mask(data=data, rms=rms, threshold=threshold, mask=mask)
-    if mask.shape != data.shape:
-        raise ValueError("Mistmatch in data and mask shapes.")
-    weights = get_intensity_weights(data, mask)
+    mask = np.moveaxis(mask, axis, 0)
+    mask = _threshold_mask(data=data, mask=mask, rms=rms, threshold=threshold)
     npix = np.sum(mask, axis=0)
-    npix_mask = np.where(npix > 1, 1, np.nan)
+    weights = get_intensity_weights(data, mask)
     vpix = dx * np.arange(data.shape[0]) + x0
     vpix = vpix[:, None, None] * np.ones(data.shape)
 
     # Intensity weighted velocity.
     m1 = np.average(vpix, weights=weights, axis=0)
     if rms is None:
-        return m1 * npix_mask, None
+        return np.where(npix > 1, m1, np.nan), None
 
     # Calculate uncertainty if rms provided.
     dm1 = (vpix - m1[None, :, :]) * rms / np.sum(weights, axis=0)
     dm1 = np.sqrt(np.sum(dm1**2, axis=0))
-    return m1 * npix_mask, dm1 * npix_mask
+    return np.where(npix > 1, m1, np.nan), np.where(npix > 1, dm1, np.nan)
 
 
 def intensity_weighted_dispersion(data, x0=0.0, dx=1.0, rms=None,
-                                  threshold=None, mask=None, axis=0):
+                                  threshold=None, mask_path=None, axis=0):
     """
     Returns the intensity weighted velocity dispersion (second moment).
     """
 
     # Calculate the intensity weighted velocity first.
     m1 = intensity_weighted_velocity(data=data, x0=x0, dx=dx, rms=rms,
-                                     threshold=threshold, mask=mask,
+                                     threshold=threshold, mask_path=mask_path,
                                      axis=axis)[0]
 
     # Rearrange the data to what we need.
+    mask = _read_mask_path(mask_path=mask_path, data=data)
     data = np.moveaxis(data, axis, 0)
-    mask = None if mask is None else np.moveaxis(mask, axis, 0)
-    mask = get_mask(data=data, rms=rms, threshold=threshold, mask=mask)
-    if mask.shape != data.shape:
-        raise ValueError("Mistmatch in data and mask shapes.")
-    weights = get_intensity_weights(data, mask)
+    mask = np.moveaxis(mask, axis, 0)
+    mask = _threshold_mask(data=data, mask=mask, rms=rms, threshold=threshold)
     npix = np.sum(mask, axis=0)
+    weights = get_intensity_weights(data, mask)
     npix_mask = np.where(npix > 1, 1, np.nan)
     vpix = dx * np.arange(data.shape[0]) + x0
     vpix = vpix[:, None, None] * np.ones(data.shape)
