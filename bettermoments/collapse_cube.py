@@ -321,9 +321,9 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
         linewidth = abs(linewidth / chan / np.sqrt(2.))
     else:
         linewidth = None
-    v0, _, Fnu, dFnu = quadratic(data, x0=velax[0], dx=chan,
-                                 uncertainty=np.ones(data.shape)*rms,
-                                 linewidth=linewidth, axis=axis)
+    _, _, Fnu, dFnu = quadratic(data, x0=velax[0], dx=chan,
+                                uncertainty=np.ones(data.shape)*rms,
+                                linewidth=linewidth, axis=axis)
     dV = I0 / Fnu / np.sqrt(np.pi)
     ddV = dV * np.hypot(dFnu / Fnu, dI0 / I0)
     return dV, ddV

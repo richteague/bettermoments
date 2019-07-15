@@ -104,7 +104,7 @@ def test_uncertainty_axis(mock_data):
 
 def test_fortran_order(mock_data):
     np.random.seed(42)
-    velax, data, vproj = mock_data
+    velax, data, _ = mock_data
     sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
     x1, dx1, y1, dy1 = bm.quadratic(data, sigma)
 
@@ -135,7 +135,7 @@ def test_fortran_order(mock_data):
 
 
 def test_compare_ninth(mock_data):
-    _, data, vproj = mock_data
+    _, data, _ = mock_data
     x9 = np.argmax(data, axis=0)
     x = bm.quadratic(data)[0]
     assert np.all(np.abs(x - x9) <= 0.5)
