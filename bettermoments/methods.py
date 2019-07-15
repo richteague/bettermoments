@@ -15,21 +15,25 @@ try:
 except ImportError:
     gaussian_filter1d = None
 
+
 def _read_mask_path(mask_path, data):
     """Read in the mask and make sure it is the same shape as the data."""
     if mask_path is not None:
+        from astropy.io import fits
         extension = mask_path.split('.')[-1].lower()
         if extension == 'fits':
-            mask = _get_data(mask_path)
+            mask = np.squeeze(fits.getdata(mask_path))
         elif extension == 'npy':
             mask = np.load(mask_path)
         else:
             raise ValueError("Mask must be a `.fits` or `.npy` file.")
         if mask.shape != data.shape:
             raise ValueError("Mismatch in mask and data shape.")
+        mask = np.where(np.isfinite(mask), mask, 0.0)
     else:
         mask = np.ones(data.shape)
     return mask.astype('bool')
+
 
 def _threshold_mask(data, mask, rms=None, threshold=0.0):
     """
