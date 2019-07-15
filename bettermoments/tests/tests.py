@@ -157,7 +157,7 @@ def test_units(mock_data):
     np.random.seed(42)
     velax, data, _ = mock_data
     sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
-    x1, dx1, , _ = bm.quadratic(data, sigma)
+    x1, dx1, _, _ = bm.quadratic(data, sigma)
 
     x0 = velax[0]
     dx = velax[1] - velax[0]
