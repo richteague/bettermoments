@@ -13,7 +13,7 @@ import bettermoments.methods as bm
 
 @pytest.fixture
 def mock_data(Nchan=64, Npix=128):
-    axis, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix)
+    _, velax, data, vproj = disk_model(Nchan=Nchan, Npix=Npix)
     data = data[:, :-1, :]
     vproj = vproj[:-1, :]
     assert data.shape == (Nchan, Npix-1, Npix)
@@ -135,7 +135,7 @@ def test_fortran_order(mock_data):
 
 
 def test_compare_ninth(mock_data):
-    velax, data, vproj = mock_data
+    _, data, vproj = mock_data
     x9 = np.argmax(data, axis=0)
     x = bm.quadratic(data)[0]
     assert np.all(np.abs(x - x9) <= 0.5)
@@ -157,11 +157,11 @@ def test_units(mock_data):
     np.random.seed(42)
     velax, data, _ = mock_data
     sigma = np.random.uniform(1e-2, 5e-2, data.size).reshape(data.shape)
-    x1, dx1, y1, _ = bm.quadratic(data, sigma)
+    x1, dx1, , _ = bm.quadratic(data, sigma)
 
     x0 = velax[0]
     dx = velax[1] - velax[0]
-    x2, dx2, y2, _ = bm.quadratic(data, sigma, x0=x0, dx=dx)
+    x2, dx2, _, _ = bm.quadratic(data, sigma, x0=x0, dx=dx)
 
     assert np.allclose(x0 + x1*dx, x2)
     assert np.allclose(dx1*dx, dx2)

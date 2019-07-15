@@ -321,9 +321,9 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
         linewidth = abs(linewidth / chan / np.sqrt(2.))
     else:
         linewidth = None
-    v0, dv0, Fnu, dFnu = quadratic(data, x0=velax[0], dx=chan,
-                                   uncertainty=np.ones(data.shape)*rms,
-                                   linewidth=linewidth, axis=axis)
+    v0, _, Fnu, dFnu = quadratic(data, x0=velax[0], dx=chan,
+                                 uncertainty=np.ones(data.shape)*rms,
+                                 linewidth=linewidth, axis=axis)
     dV = I0 / Fnu / np.sqrt(np.pi)
     ddV = dV * np.hypot(dFnu / Fnu, dI0 / I0)
     return dV, ddV
@@ -602,10 +602,10 @@ def main():
         print("Saving maps...")
 
     for map_name in tosave.keys():
-        map = np.where(mask, tosave[map_name], args.fill)
+        map_file = np.where(mask, tosave[map_name], args.fill)
         out = args.path.replace('.fits', '_{}.fits'.format(map_name))
         bunit = bunits[map_name]
-        _save_array(args.path, out, map, overwrite=args.overwrite, bunit=bunit)
+        _save_array(args.path, out, map_file, overwrite=args.overwrite, bunit=bunit)
 
 if __name__ == '__main__':
     main()
