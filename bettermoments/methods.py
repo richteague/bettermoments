@@ -2,12 +2,11 @@
 
 from __future__ import division, print_function
 
-__all__ = ["quadratic",
-           "peak_pixel",
-           "integrated_intensity",
+__all__ = ["integrated_intensity",
            "intensity_weighted_velocity",
            "intensity_weighted_dispersion",
-           "get_mask", "get_intensity_weights"]
+           "peak_pixel",
+           "quadratic"]
 
 import numpy as np
 

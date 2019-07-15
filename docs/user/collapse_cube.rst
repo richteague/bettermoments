@@ -1,4 +1,4 @@
-.. module: bettermoments.collapse_cube
+.. module:: bettermoments.collapse_cube
 .. collapse_cube
 
 API
