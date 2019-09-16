@@ -42,4 +42,4 @@ For help with the exact command line options, use
 
 .. code-block:: bash
 
-    bettermoment -help
+    bettermoment --help
