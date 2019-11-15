@@ -6,7 +6,8 @@ __all__ = ["integrated_intensity",
            "intensity_weighted_velocity",
            "intensity_weighted_dispersion",
            "peak_pixel",
-           "quadratic"]
+           "quadratic",
+           "gaussian"]
 
 import numpy as np
 
@@ -368,3 +369,98 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
         np.reshape(dx * np.sqrt(x_max_var), shape),
         np.reshape(y_max, shape),
         np.reshape(np.sqrt(y_max_var), shape))
+
+def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
+             Fnu=None, dV=None, curve_fit_kwargs=None):
+    """
+    Fits a Gaussian line profile to each pixel.
+
+    Initial guesses of the parameters can be proved through the ``v0``, ``Fnu``
+    and ``dV`` arguments. If any of these three values are ``np.nan`` for a
+    pixel, that pixel is skipped in the fitting.
+
+    The uncertainties are those estimated by ``scipy.optimize.curve_fit`` and
+    will not take into account any correlations.
+
+    Args:
+        data (ndarray): The data cube as an array with at least one dimension.
+        specax (ndarray): The spectral axis of the data.
+        uncertainty (Optional[ndarray or float]): The uncertainty on the
+            intensity given by ``data``. If this is a scalar, all uncertainties
+            are assumed to be the same. If this is any arrya, it must have the
+            same shape as a channel, i.e. ``data.shape[1:]`` or
+            ``data[0].shape``.
+        axis (Optional[int]): The axis along which the Gaussian profiles should
+            be fit.
+        smooth (Optional[float]): Standard deviation of a Gaussian kernel to
+            pre-smooth the spectra with.
+        v0 (Optional[ndarray]): Initial guesses of the line centers in same
+            units as ``specax``. To mask pixels use ``np.nan`` values.
+        Fnu (Optional[ndarray]): Intial guesses of the line peaks in the same
+            units as ``data``. To mask pixels use ``np.nan`` values.
+        dV (Optional[ndarray]): Initial guesses of the line widths in the same
+            units as ``specax``. To mask pixels use ``np.nan`` values.
+        curve_fit_kwargs (Optional[dict]): Dictionary of kwargs to pass to
+            ``scipy.optimize.curve_fit``.
+    """
+
+    # Need to do some data rotation here.
+    if axis != 0:
+        raise NotImplementedError("Can only collapse along the zeroth axis.")
+    assert specax.size == data.shape[0]
+    shape = data.shape[1:]
+
+    # Define the velocity axis and uncertainties.
+    sigma = np.nanstd(data) if uncertainty is None else uncertainty
+    if isinstance(sigma, float):
+        sigma = np.ones(data.shape) * sigma
+    elif sigma.shape == shape:
+        sigma = np.ones(data.shape) * sigma[:, None, None]
+
+    # Smooth the data if approrpriate.
+    truncate = 4.0
+    if smooth is not None:
+        if gaussian_filter1d is None:
+            raise ImportError("scipy is required for smoothing.")
+        smooth /= np.diff(specax).mean()
+        data = gaussian_filter1d(data, smooth, axis=0, truncate=truncate)
+
+    # Cycle through initial guesses fitting the data.
+    if v0 is None:
+        v0 = np.ones(shape=shape) * np.mean(velax)
+    assert v0.shape == shape, "Wrong shape in starting ``v0`` values."
+    if Fnu is None:
+        Fnu = np.nanmax(data, axis=0)
+    assert Fnu.shape == shape, "Wrong shape in starting ``Fnu`` values."
+    if dV is None:
+        dV = np.ones(shape=shape) * 5.0 * dx
+    assert dV.shape == shape, "Wrong shape in starting ``dV`` values."
+    mask = np.all(np.isfinite([v0, Fnu, dV]), axis=0)
+
+    # Cycle through the pixels applying the fit.
+    # Skip over the points which do not have a good initial guess.
+    from scipy.optimize import curve_fit
+    params = np.ones(shape=(6, shape[0], shape[1])) * np.nan
+    curve_fit_kwargs = {} if curve_fit_kwargs is None else curve_fit_kwargs
+    curve_fit_kwargs['maxfev'] = curve_fit_kwargs.pop('maxfev', 100000)
+    for y in range(shape[0]):
+        for x in range(shape[1]):
+            if mask[y, x]:
+                try:
+                    popt, covt = curve_fit(_gaussian, specax, data[:, y, x],
+                                           p0=[v0[y, x], dV[y, x], Fnu[y, x]],
+                                           sigma=sigma[:, y, x],
+                                           absolute_sigma=True,
+                                           **curve_fit_kwargs)
+                    covt = np.diag(covt)**0.5
+                except:
+                    popt = np.ones(3) * np.nan
+                    covt = np.ones(3) * np.nan
+                params[::2, y, x] = popt
+                params[1::2, y, x] = covt
+
+    return params
+
+def _gaussian(x, x0, dx, A):
+    """Gaussian function, ``dx`` is the Doppler width."""
+    return A * np.exp(-((x-x0)/dx)**2)
