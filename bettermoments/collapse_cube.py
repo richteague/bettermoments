@@ -11,6 +11,38 @@ from astropy.io import fits
 from scipy.ndimage.filters import convolve1d
 
 
+def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
+                      axis=0):
+    """
+    Collapse the cube by fitting Gaussians to each pixel.
+
+    Args:
+        TBD
+
+    Returns:
+        TBD
+    """
+
+    if axis != 0:
+        raise NotImplementedError("Can only collapse along the zeroth axis.")
+
+    # Verfify the data and calculate the noise.
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+
+    # Calculate the initial guesses.
+    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data,
+                                       linewidth=smooth, rms=rms, N=N,
+                                       axis=axis)
+    dV, _ = collapse_width(velax=velax, data=data, linewidth=smooth, rms=rms,
+                           N=N, threshold=threshold, axis=axis)
+    Fnu = np.where(Fnu / rms > threshold, Fnu, np.nan)
+
+    # Fit the gaussians.
+    from bettermoments.methods import gaussian
+    return gaussian(data=data, specax=velax, uncertainty=rms, axis=axis,
+                    smooth=smooth, v0=v0, Fnu=Fnu, dV=dV)
+
+
 def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
     """
     Collapse the cube using the quadratic method presented in `Teague &
@@ -426,6 +458,12 @@ def _get_bunits(path):
     bunits['dFnu'] = '{}'.format(flux_unit)
     bunits['dV'] = 'm/s'
     bunits['ddV'] = 'm/s'
+    bunits['gv0'] = bunits['v0']
+    bunits['gFnu'] = bunits['Fnu']
+    bunits['gdV'] = bunits['dV']
+    bunits['gdv0'] = bunits['gv0']
+    bunits['gdFnu'] = bunits['gFnu']
+    bunits['gddV'] = bunits['gdV']
     return bunits
 
 def _write_header(path, bunit):
@@ -477,7 +515,7 @@ def main():
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube. Current available '
                              'methods are: quadratic, maximum, zeroth, first, '
-                             'second and width.')
+                             'second, width and gaussian.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
@@ -578,6 +616,14 @@ def main():
                                  rms=args.rms, N=args.N, mask_path=args.mask,
                                  axis=args.axis, linewidth=args.linewidth)
         tosave['dV'], tosave['ddV'] = dV, ddV
+
+    elif args.method == 'gaussian':
+        temp = collapse_gaussian(velax=velax, data=data, smooth=args.linewidth,
+                                 rms=args.rms, threshold=args.clip, N=args.N,
+                                 axis=args.axis)
+        tosave['gv0'], tosave['gdv0'] = temp[:2]
+        tosave['gdV'], tosave['gddV'] = temp[2:4]
+        tosave['gFnu'], tosave['gdFnu'] = temp[4:]
 
     else:
         raise ValueError("Unknown method.")

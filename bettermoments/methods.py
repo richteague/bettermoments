@@ -415,7 +415,8 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
     if isinstance(sigma, float):
         sigma = np.ones(data.shape) * sigma
     elif sigma.shape == shape:
-        sigma = np.ones(data.shape) * sigma[:, None, None]
+        sigma = np.ones(data.shape) * sigma[None, :, :]
+    assert sigma.shape == data.shape, "sigma and data do not match shapes"
 
     # Smooth the data if approrpriate.
     truncate = 4.0
@@ -423,7 +424,8 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
         if gaussian_filter1d is None:
             raise ImportError("scipy is required for smoothing.")
         smooth /= np.diff(specax).mean()
-        data = gaussian_filter1d(data, smooth, axis=0, truncate=truncate)
+        if smooth > 0.0:
+            data = gaussian_filter1d(data, smooth, axis=0, truncate=truncate)
 
     # Cycle through initial guesses fitting the data.
     if v0 is None:
@@ -443,13 +445,15 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
     params = np.ones(shape=(6, shape[0], shape[1])) * np.nan
     curve_fit_kwargs = {} if curve_fit_kwargs is None else curve_fit_kwargs
     curve_fit_kwargs['maxfev'] = curve_fit_kwargs.pop('maxfev', 100000)
+
     for y in range(shape[0]):
         for x in range(shape[1]):
             if mask[y, x]:
                 try:
-                    popt, covt = curve_fit(_gaussian, specax, data[:, y, x],
+                    f = np.isfinite(data[:, y, x])
+                    popt, covt = curve_fit(_gaussian, specax[f], data[f, y, x],
                                            p0=[v0[y, x], dV[y, x], Fnu[y, x]],
-                                           sigma=sigma[:, y, x],
+                                           sigma=sigma[f, y, x],
                                            absolute_sigma=True,
                                            **curve_fit_kwargs)
                     covt = np.diag(covt)**0.5
