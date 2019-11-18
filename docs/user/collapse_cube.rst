@@ -40,7 +40,8 @@ Non-Traditional Methods
 .. autofunction:: bettermoments.collapse_cube.collapse_width
 
 
-Higher Order Gaussian Fits
---------------------------
+(Higher Order) Gaussian Fits
+----------------------------
 
-Coming soon.
+.. autofunction:: bettermoments.collapse_cube.collapse_gaussian
+

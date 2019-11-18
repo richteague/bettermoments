@@ -16,8 +16,26 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
     """
     Collapse the cube by fitting Gaussians to each pixel.
 
+    To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
+    utilises non-linear least squares, the :func:`bettermoments.collapse_cube.quadratic`
+    method is first run to obtain line centers and peaks, while the
+    :func:`bettermoments.collapse_cube.width` method is used to estimate
+    the line width. These values are further used to locate the pixels which
+    will be fit, i.e. those which have ``Fnu / dFnu >= threshold``.
+
     Args:
-        TBD
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux density or brightness temperature array. Assumes
+            that the zeroth axis is the velocity axis.
+        smooth (Optional[float]): If specified, gives the standard deviation of
+            the Gaussian kernel used to smooth the spectra prior to fitting a
+            Gaussian. Should be the same units as ``velax``.
+        rms (Optional[float]): Noise per pixel. If ``None`` is specified,
+            this will be calculated from the first and last ``N`` channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        axis (Optional[int]): Spectral axis to collapse the cube along, by
+            default ``axis=0``.
 
     Returns:
         TBD
