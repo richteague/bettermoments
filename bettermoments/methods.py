@@ -428,24 +428,22 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
             data = gaussian_filter1d(data, smooth, axis=0, truncate=truncate)
 
     # Cycle through initial guesses fitting the data.
-    if v0 is None:
-        v0 = np.ones(shape=shape) * np.mean(velax)
+    v0 = np.ones(shape=shape) * np.mean(velax) if v0 is None else v0
     assert v0.shape == shape, "Wrong shape in starting ``v0`` values."
-    if Fnu is None:
-        Fnu = np.nanmax(data, axis=0)
+    Fnu = np.nanmax(data, axis=0) if Fnu is None else Fnu
     assert Fnu.shape == shape, "Wrong shape in starting ``Fnu`` values."
-    if dV is None:
-        dV = np.ones(shape=shape) * 5.0 * dx
+    dV = np.ones(shape=shape) * 5.0 * dx if dV is None else dV
     assert dV.shape == shape, "Wrong shape in starting ``dV`` values."
     mask = np.all(np.isfinite([v0, Fnu, dV]), axis=0)
 
-    # Cycle through the pixels applying the fit.
-    # Skip over the points which do not have a good initial guess.
+    # Set the fitting parameters.
     from scipy.optimize import curve_fit
     params = np.ones(shape=(6, shape[0], shape[1])) * np.nan
     curve_fit_kwargs = {} if curve_fit_kwargs is None else curve_fit_kwargs
     curve_fit_kwargs['maxfev'] = curve_fit_kwargs.pop('maxfev', 100000)
 
+    # Cycle through the pixels applying the fit.
+    # Skip over the points which do not have a good initial guess.
     for y in range(shape[0]):
         for x in range(shape[1]):
             if mask[y, x]:
@@ -462,7 +460,6 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
                     covt = np.ones(3) * np.nan
                 params[::2, y, x] = popt
                 params[1::2, y, x] = covt
-
     return params
 
 def _gaussian(x, x0, dx, A):

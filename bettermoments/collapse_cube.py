@@ -17,11 +17,12 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
     Collapse the cube by fitting Gaussians to each pixel.
 
     To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
-    utilises non-linear least squares, the :func:`bettermoments.collapse_cube.quadratic`
-    method is first run to obtain line centers and peaks, while the
-    :func:`bettermoments.collapse_cube.width` method is used to estimate
-    the line width. These values are further used to locate the pixels which
-    will be fit, i.e. those which have ``Fnu / dFnu >= threshold``.
+    utilises non-linear least squares, the
+    :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
+    line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
+    method is used to estimate the line width. These values are further used to
+    locate the pixels which will be fit, i.e. those which have ``Fnu / dFnu >=
+    threshold``.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -38,7 +39,13 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
             default ``axis=0``.
 
     Returns:
-        TBD
+        ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
+            ``gv0``, the line center in the same units as ``velax`` with ``gdv0``
+            as the uncertainty on ``v0`` in the same units as ``velax``.
+            ``gdV`` is the Doppler linewidth of the Gaussian fit in the same
+            units as ``velax`` with uncertainty ``gddV``. ``gFnu`` is the line
+            peak in the same units as the ``data`` with associated
+            uncertainties, ``gdFnu``.
     """
 
     if axis != 0:
@@ -53,7 +60,7 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
                                        axis=axis)
     dV, _ = collapse_width(velax=velax, data=data, linewidth=smooth, rms=rms,
                            N=N, threshold=threshold, axis=axis)
-    Fnu = np.where(Fnu / rms > threshold, Fnu, np.nan)
+    Fnu = np.where(abs(Fnu) / rms > threshold, Fnu, np.nan)
 
     # Fit the gaussians.
     from bettermoments.methods import gaussian
