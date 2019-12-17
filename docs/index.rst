@@ -34,6 +34,7 @@ and you're done! A full pip-installable package is coming soon.
 
    user/collapse_cube
    user/command_line
+   user/faq
    user/citations
 
 .. _Teague (2019): https://iopscience.iop.org/article/10.3847/2515-5172/ab2125
