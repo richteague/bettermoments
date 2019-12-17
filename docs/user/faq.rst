@@ -1,5 +1,6 @@
-.. citations
+.. faq
 
-# Frequently Asked Questions
+Frequently Asked Questions
+==========================
 
 Coming soon.
