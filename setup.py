@@ -2,27 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
-from distutils.core import setup
-
-
-if sys.version < '3.3':
-    raise RuntimeError("bettermoments needs Python 3.3 or newer.")
-
-if sys.argv[-1] == "publish":
-    os.system("python setup.py sdist upload")
-    sys.exit()
+import setuptools
 
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md")) as f:
     long_description = f.read()
 
-setup(
+setuptools.setup(
     name="bettermoments",
     version="1.1.0",
     author="Richard Teague & Daniel Foreman-Mackey",
-    author_email='rteague@umich.edu',
-    packages=['bettermoments', 'bettermoments.tests'],
+    author_email='richard.d.teague@cfa.harvard.edu',
+    packages=setuptools.find_packages(),
     url="https://github.com/richteague/bettermoments",
     license="LICENSE.md",
     description=("Robust moment map making."),
