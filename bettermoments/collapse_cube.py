@@ -561,6 +561,8 @@ def main():
                         help='Axis to collapse the cube along. Default is 0.')
     parser.add_argument('-downsample', default=1, type=int,
                         help='Downsample the data by this factor.')
+    parser.add_argument('-outname', default=None, type=str,
+                        help='Name of the output file.')
     parser.add_argument('-overwrite', default=True, type=bool,
                         help='Overwrite existing files with the same name.')
     parser.add_argument('--nomask', action='store_true',
@@ -674,9 +676,10 @@ def main():
 
     for map_name in tosave.keys():
         map_file = np.where(mask, tosave[map_name], args.fill)
-        out = args.path.replace('.fits', '_{}.fits'.format(map_name))
+        if args.outname is None:
+          args.outname = args.path.replace('.fits', '_{}.fits'.format(map_name))
         bunit = bunits[map_name]
-        _save_array(args.path, out, map_file, overwrite=args.overwrite, bunit=bunit)
+        _save_array(args.path, args.outname, map_file, overwrite=args.overwrite, bunit=bunit)
 
 if __name__ == '__main__':
     main()
