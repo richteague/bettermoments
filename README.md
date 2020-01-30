@@ -12,4 +12,28 @@
   <a href='https://bettermoments.readthedocs.io/en/latest/?badge=latest'>
       <img src='https://readthedocs.org/projects/bettermoments/badge/?version=latest' alt='Documentation Status' />
   </a>
+  <br><br><br><br>
 </p>
+
+
+## Installation
+
+To install, we recommend using pip:
+
+```bash
+pip install bettermoments
+```
+
+## Usage
+
+The easiest way to interface with ``bettermoments`` is through the command line. To use the default quadratic method simply use,
+
+```bash
+bettermoments path/to/cube.fits
+```
+
+while various other methods, discussed further in the documentation, can be accessed via the ``-method`` flag:
+
+```bash
+bettermoments path/to/cube.fits -method zeroth
+``
