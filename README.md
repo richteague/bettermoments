@@ -36,4 +36,4 @@ while various other methods, discussed further in the documentation, can be acce
 
 ```bash
 bettermoments path/to/cube.fits -method zeroth
-``
+```
