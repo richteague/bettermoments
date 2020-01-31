@@ -676,10 +676,12 @@ def main():
 
     for map_name in tosave.keys():
         map_file = np.where(mask, tosave[map_name], args.fill)
-        if args.outname is None:
-          args.outname = args.path.replace('.fits', '_{}.fits'.format(map_name))
+        outname = args.outname if args.outname is not None else args.path
+        outname = outname + '.fits' if outname[:-5] == '.fits' else outname
+        outname = outname.replace('.fits', '_{}.fits'.format(map_name))
         bunit = bunits[map_name]
-        _save_array(args.path, args.outname, map_file, overwrite=args.overwrite, bunit=bunit)
+        _save_array(args.path, outname, map_file,
+                    overwrite=args.overwrite, bunit=bunit)
 
 if __name__ == '__main__':
     main()
