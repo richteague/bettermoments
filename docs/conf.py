@@ -18,7 +18,7 @@ sys.path.append(os.path.join(os.path.dirname(__name__), '..'))
 # -- Project information -----------------------------------------------------
 
 project = 'bettermoments'
-copyright = '2019, Richard Teague'
+copyright = '2020, Richard Teague'
 author = 'Richard Teague'
 
 # -- General configuration ---------------------------------------------------
