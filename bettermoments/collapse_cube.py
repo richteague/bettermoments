@@ -11,8 +11,7 @@ from astropy.io import fits
 from scipy.ndimage.filters import convolve1d
 
 
-def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
-                      axis=0):
+def collapse_gaussian(velax, data, rms=None, threshold=3.0, N=5, axis=0):
     """
     Collapse the cube by fitting Gaussians to each pixel.
 
@@ -28,9 +27,6 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux density or brightness temperature array. Assumes
             that the zeroth axis is the velocity axis.
-        smooth (Optional[float]): If specified, gives the standard deviation of
-            the Gaussian kernel used to smooth the spectra prior to fitting a
-            Gaussian. Should be the same units as ``velax``.
         rms (Optional[float]): Noise per pixel. If ``None`` is specified,
             this will be calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
@@ -47,7 +43,7 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
             the line peak in the same units as the ``data`` with associated
             uncertainties, ``gdFnu``.
     """
-
+    # Rorate the axis if necessary.
     if axis != 0:
         raise NotImplementedError("Can only collapse along the zeroth axis.")
 
@@ -55,20 +51,78 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
 
     # Calculate the initial guesses.
-    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data,
-                                       linewidth=smooth, rms=rms, N=N,
+    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms, N=N,
                                        axis=axis)
-    dV, _ = collapse_width(velax=velax, data=data, linewidth=smooth, rms=rms,
-                           N=N, threshold=threshold, axis=axis)
+    dV, _ = collapse_width(velax=velax, data=data, rms=rms, N=N,
+                           threshold=threshold, axis=axis)
     Fnu = np.where(abs(Fnu) / rms > threshold, Fnu, np.nan)
 
     # Fit the gaussians.
     from bettermoments.methods import gaussian
     return gaussian(data=data, specax=velax, uncertainty=rms, axis=axis,
-                    smooth=smooth, v0=v0, Fnu=Fnu, dV=dV)
+                    v0=v0, Fnu=Fnu, dV=dV)
 
 
-def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
+def collapse_gausshermite(velax, data, rms=None, threshold=3.0, N=5, axis=0):
+    """
+    Collapse the cube by fitting a Hermite expansion of a Gaussians to each
+    pixel. This allows for a flexible line profile that purely a Gaussian,
+    where the ``h3`` and ``h4`` terms quantify the skewness and kurtosis of the
+    line as in `_van der Marel & Franx (1993)`_.
+
+    To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
+    utilises non-linear least squares, the
+    :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
+    line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
+    method is used to estimate the line width. These values are further used to
+    locate the pixels which will be fit, i.e. those which have ``Fnu / dFnu >=
+    threshold``.
+
+    .. _van der Marel & Franx (1993): https://ui.adsabs.harvard.edu/abs/1993ApJ...407..525V/abstract
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux density or brightness temperature array. Assumes
+            that the zeroth axis is the velocity axis.
+        rms (Optional[float]): Noise per pixel. If ``None`` is specified,
+            this will be calculated from the first and last ``N`` channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        axis (Optional[int]): Spectral axis to collapse the cube along, by
+            default ``axis=0``.
+
+    Returns:
+        ``ghv0`` (`ndarray`), ``dghv0`` (`ndarray`), ``ghdV`` (`ndarray`), ``dghdV`` (`ndarray`), ``ghFnu`` (`ndarray`), ``dghFnu`` (`ndarray`), ``ghh3`` (`ndarray`), ``dghh3`` (`ndarray`), ``ghh4`` (`ndarray`), ``dghh4`` (`ndarray`):
+            ``ghv0``, the line center in the same units as ``velax`` with
+            ``dghv0`` as the uncertainty on ``ghv0`` in the same units as
+            ``velax``. ``ghdV`` is the Doppler linewidth of the Gaussian fit in
+            the same units as ``velax`` with uncertainty ``dghdV``. ``ghFnu``
+            is the line peak in the same units as the ``data`` with associated
+            uncertainties, ``dghFnu``. ``ghh3`` and ``ghh4`` describe the
+            skewness and kurtosis of the line, respectively, with uncertainties
+            ``dghh3`` and ``dghh4``.
+    """
+    # Rotate the axis if necessary.
+    if axis != 0:
+        raise NotImplementedError("Can only collapse along the zeroth axis.")
+
+    # Verfify the data and calculate the noise.
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+
+    # Calculate the initial guesses.
+    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms, N=N,
+                                       axis=axis)
+    dV, _ = collapse_width(velax=velax, data=data, rms=rms, N=N,
+                           threshold=threshold, axis=axis)
+    Fnu = np.where(abs(Fnu) / rms > threshold, Fnu, np.nan)
+
+    # Fit the gaussians.
+    from bettermoments.methods import gausshermite
+    return gausshermite(data=data, specax=velax, uncertainty=rms, axis=axis,
+                        v0=v0, Fnu=Fnu, dV=dV)
+
+
+def collapse_quadratic(velax, data, rms=None, N=5, axis=0):
     """
     Collapse the cube using the quadratic method presented in `Teague &
     Foreman-Mackey (2018)`_. Will return the line center, ``v0``, and the
@@ -83,8 +137,6 @@ def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux density or brightness temperature array. Assumes
             that the zeroth axis is the velocity axis.
-        linewidth (Optional[float]): Doppler width of the line. If specified
-            will be used to smooth the data prior to the quadratic fit.
         rms (Optional[float]): Noise per pixel. If ``None`` is specified,
             this will be calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
@@ -101,11 +153,7 @@ def collapse_quadratic(velax, data, linewidth=None, rms=None, N=5, axis=0):
     """
     from bettermoments.methods import quadratic
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
-    if linewidth > 0.0:
-        linewidth = abs(linewidth / chan / np.sqrt(2.))
-    else:
-        linewidth = None
-    return quadratic(data, x0=velax[0], dx=chan, linewidth=linewidth,
+    return quadratic(data, x0=velax[0], dx=chan,
                      uncertainty=np.ones(data.shape)*rms, axis=axis)
 
 
@@ -359,8 +407,6 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
         velax (ndarray): Velocity axis of the cube.
         data (ndarray): Flux densities or brightness temperature array. Assumes
             that the first axis is the velocity axis.
-        linewidth (Optional[float]): Doppler width of the line. If specified
-            will be used to smooth the data prior to the quadratic fit.
         rms (Optional[float]): Noise per pixel. If ``None`` is specified, this
             will be calculated from the first and last ``N`` channels.
         N (Optional[int]): Number of channels to use in the estimation of the
@@ -386,7 +432,7 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
         linewidth = None
     _, _, Fnu, dFnu = quadratic(data, x0=velax[0], dx=chan,
                                 uncertainty=np.ones(data.shape)*rms,
-                                linewidth=linewidth, axis=axis)
+                                axis=axis)
     dV = I0 / Fnu / np.sqrt(np.pi)
     ddV = dV * np.hypot(dFnu / Fnu, dI0 / I0)
     return dV, ddV
@@ -496,9 +542,19 @@ def _get_bunits(path):
     bunits['gv0'] = bunits['v0']
     bunits['gFnu'] = bunits['Fnu']
     bunits['gdV'] = bunits['dV']
-    bunits['gdv0'] = bunits['gv0']
-    bunits['gdFnu'] = bunits['gFnu']
-    bunits['gddV'] = bunits['gdV']
+    bunits['dgv0'] = bunits['gv0']
+    bunits['dgFnu'] = bunits['gFnu']
+    bunits['dgdV'] = bunits['gdV']
+    bunits['ghv0'] = bunits['v0']
+    bunits['ghFnu'] = bunits['Fnu']
+    bunits['ghdV'] = bunits['dV']
+    bunits['ghh3'] = ''
+    bunits['ghh4'] = ''
+    bunits['dghv0'] = bunits['gv0']
+    bunits['dghFnu'] = bunits['gFnu']
+    bunits['dghdV'] = bunits['gdV']
+    bunits['dghh3'] = bunits['ghh3']
+    bunits['dghh4'] = bunits['ghh4']
     return bunits
 
 
@@ -554,15 +610,14 @@ def main():
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube. Current available '
                              'methods are: quadratic, maximum, zeroth, first, '
-                             'second, width and gaussian.')
+                             'second, width, gaussian and gausshermite.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
                         help='Fill value for masked pixels. Default is NaN.')
-    parser.add_argument('-linewidth', default=0.0, type=float,
-                        help='Linewidth in m/s used to smooth data.'
-                             'For best results, use a linewidth comprable to '
-                             'the intrinsic linewidth.')
+    parser.add_argument('-smooth', default=0.0, type=float,
+                        help='The FWHM of a Gaussian kernel to smooth the '
+                             'data in velocity space prior to collapsing.')
     parser.add_argument('-rms', default=None, type=float,
                         help='Estimated RMS noise from a line free channel. '
                              'Same units as the brightness unit.')
@@ -584,8 +639,16 @@ def main():
                              '`clip` value. Default is True.')
     parser.add_argument('--silent', action='store_true',
                         help='Run silently.')
+    parser.add_argument('--warnings', action='store_true',
+                        help='Show the warnings.')
     args = parser.parse_args()
     args.method = args.method.lower()
+
+    # Hide warnings. Maybe a bad idea?
+
+    if not args.warnings:
+        import warnings
+        warnings.filterwarnings("ignore")
 
     # Read in the cube and the units.
 
@@ -596,6 +659,8 @@ def main():
     # hat function to minimic the channelization of ALMA.
 
     if args.downsample > 1:
+        if not args.silent:
+            print("Down-sampling data...")
         N = int(args.downsample)
         data = np.array([np.nanmean(data[i*N:(i+1)*N], axis=0)
                          for i in range(int(velax.size / N))])
@@ -603,6 +668,15 @@ def main():
         data = convolve1d(data, kernel, mode='reflect', axis=args.axis)
         velax = np.array([np.average(velax[i*N:(i+1)*N])
                           for i in range(int(velax.size / N))])
+
+    # Presmooth the data with a Gaussian filter. Use astropy to handle NaNs.
+
+    if args.smooth > 0.0:
+        from scipy.ndimage.filters import gaussian_filter1d
+        if not args.silent:
+            print("Smoothing data...")
+        width = args.smooth / abs(np.diff(velax)[0]) / 2.355
+        data = gaussian_filter1d(data, width, mode='wrap')
 
     # Collapse the cube with the approrpriate method.
 
@@ -647,7 +721,6 @@ def main():
     elif args.method == 'quadratic':
         v0, dv0, Fnu, dFnu = collapse_quadratic(velax=velax, data=data,
                                                 N=args.N, axis=args.axis,
-                                                linewidth=args.linewidth,
                                                 rms=args.rms)
         tosave['v0'], tosave['dv0'] = v0, dv0
         tosave['Fnu'], tosave['dFnu'] = Fnu, dFnu
@@ -659,13 +732,21 @@ def main():
         tosave['dV'], tosave['ddV'] = dV, ddV
 
     elif args.method == 'gaussian':
-        temp = collapse_gaussian(velax=velax, data=data, smooth=args.linewidth,
-                                 rms=args.rms, threshold=args.clip, N=args.N,
-                                 axis=args.axis)
-        tosave['gv0'], tosave['gdv0'] = temp[:2]
-        tosave['gdV'], tosave['gddV'] = temp[2:4]
-        tosave['gFnu'], tosave['gdFnu'] = temp[4:]
+        temp = collapse_gaussian(velax=velax, data=data, rms=args.rms,
+                                 threshold=args.clip, N=args.N, axis=args.axis)
+        tosave['gv0'], tosave['dgv0'] = temp[:2]
+        tosave['gdV'], tosave['dgdV'] = temp[2:4]
+        tosave['gFnu'], tosave['dgFnu'] = temp[4:]
 
+    elif args.method == 'gausshermite':
+        temp = collapse_gausshermite(velax=velax, data=data, rms=args.rms,
+                                     threshold=args.clip, N=args.N,
+                                     axis=args.axis)
+        tosave['ghv0'], tosave['dghv0'] = temp[:2]
+        tosave['ghdV'], tosave['dghdV'] = temp[2:4]
+        tosave['ghFnu'], tosave['dghFnu'] = temp[4:6]
+        tosave['ghh3'], tosave['dghh3'] = temp[6:8]
+        tosave['ghh4'], tosave['dghh4'] = temp[8:]
     else:
         raise ValueError("Unknown method.")
 

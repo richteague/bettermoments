@@ -45,3 +45,4 @@ Non-Traditional Methods
 
 .. autofunction:: bettermoments.collapse_cube.collapse_gaussian
 
+.. autofunction:: bettermoments.collapse_cube.collapse_gausshermite

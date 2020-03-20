@@ -253,8 +253,6 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
         x0 (Optional[float]): The wavelength/frequency/velocity/etc. value for
             the zeroth pixel in the ``axis'' dimension.
         dx (Optional[float]): The pixel scale of the ``axis'' dimension.
-        linewidth (Optional [float]): Estimated standard deviation of the line
-            in units of pixels.
 
     Returns:
         x_max (ndarray): The centroid of the brightest line along the ``axis''
@@ -273,13 +271,6 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
 
     # Find the maximum velocity pixel in each spatial pixel
     idx = np.argmax(data, axis=0)
-
-    # Smooth the data if asked
-    truncate = 4.0
-    if linewidth is not None:
-        if gaussian_filter1d is None:
-            raise ImportError("scipy is required for smoothing")
-        data = gaussian_filter1d(data, linewidth, axis=0, truncate=truncate)
 
     # Deal with edge effects by keeping track of which pixels are right on the
     # edge of the range
@@ -325,7 +316,6 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
     # Compute the uncertainty
     try:
         uncertainty = float(uncertainty) + np.zeros_like(data)
-
     except TypeError:
 
         # An array of errors was provided
@@ -335,21 +325,6 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
             raise ValueError("the data and uncertainty must have the same "
                              "shape")
         uncertainty = np.reshape(uncertainty, (len(uncertainty), -1))
-
-    # Update the uncertainties for the smoothed data:
-    #  sigma_smooth = sqrt(norm * k**2 x sigma_n**2)
-    if linewidth is not None:
-        # The updated uncertainties need to be updated by convolving with the
-        # square of the kernel with which the data were smoothed. Then, this
-        # needs to be properly normalized. See the scipy source for the
-        # details of this normalization:
-        # https://github.com/scipy/scipy/blob/master/scipy/ndimage/filters.py
-        sigma = linewidth / np.sqrt(2)
-        lw = int(truncate * linewidth + 0.5)
-        norm = np.sum(_gaussian_kernel1d(linewidth, 0, lw)**2)
-        norm /= np.sum(_gaussian_kernel1d(sigma, 0, lw))
-        uncertainty = np.sqrt(norm * gaussian_filter1d(
-            uncertainty**2, sigma, axis=0))
 
     df_minus = uncertainty[(idx-1, range(uncertainty.shape[1]))]**2
     df_max = uncertainty[(idx, range(uncertainty.shape[1]))]**2
@@ -370,8 +345,9 @@ def quadratic(data, uncertainty=None, axis=0, x0=0.0, dx=1.0, linewidth=None):
         np.reshape(y_max, shape),
         np.reshape(np.sqrt(y_max_var), shape))
 
-def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
-             Fnu=None, dV=None, curve_fit_kwargs=None):
+
+def gaussian(data, specax, uncertainty=None, axis=0, v0=None, Fnu=None,
+             dV=None, curve_fit_kwargs=None):
     """
     Fits a Gaussian line profile to each pixel.
 
@@ -392,8 +368,6 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
             ``data[0].shape``.
         axis (Optional[int]): The axis along which the Gaussian profiles should
             be fit.
-        smooth (Optional[float]): Standard deviation of a Gaussian kernel to
-            pre-smooth the spectra with.
         v0 (Optional[ndarray]): Initial guesses of the line centers in same
             units as ``specax``. To mask pixels use ``np.nan`` values.
         Fnu (Optional[ndarray]): Intial guesses of the line peaks in the same
@@ -418,21 +392,12 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
         sigma = np.ones(data.shape) * sigma[None, :, :]
     assert sigma.shape == data.shape, "sigma and data do not match shapes"
 
-    # Smooth the data if approrpriate.
-    truncate = 4.0
-    if smooth is not None:
-        if gaussian_filter1d is None:
-            raise ImportError("scipy is required for smoothing.")
-        smooth /= np.diff(specax).mean()
-        if smooth > 0.0:
-            data = gaussian_filter1d(data, smooth, axis=0, truncate=truncate)
-
     # Cycle through initial guesses fitting the data.
-    v0 = np.ones(shape=shape) * np.mean(velax) if v0 is None else v0
+    v0 = np.ones(shape=shape) * np.mean(specax) if v0 is None else v0
     assert v0.shape == shape, "Wrong shape in starting ``v0`` values."
     Fnu = np.nanmax(data, axis=0) if Fnu is None else Fnu
     assert Fnu.shape == shape, "Wrong shape in starting ``Fnu`` values."
-    dV = np.ones(shape=shape) * 5.0 * dx if dV is None else dV
+    dV = np.ones(shape=shape) * 5.0 * np.diff(specax)[0] if dV is None else dV
     assert dV.shape == shape, "Wrong shape in starting ``dV`` values."
     mask = np.all(np.isfinite([v0, Fnu, dV]), axis=0)
 
@@ -448,10 +413,11 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
         for x in range(shape[1]):
             if mask[y, x]:
                 try:
-                    f = np.isfinite(data[:, y, x])
-                    popt, covt = curve_fit(_gaussian, specax[f], data[f, y, x],
-                                           p0=[v0[y, x], dV[y, x], Fnu[y, x]],
-                                           sigma=sigma[f, y, x],
+                    f0 = np.isfinite(data[:, y, x])
+                    p0 = [v0[y, x], dV[y, x], Fnu[y, x]]
+                    popt, covt = curve_fit(_gaussian_hermite, specax[f0],
+                                           data[f0, y, x], p0=p0,
+                                           sigma=sigma[f0, y, x],
                                            absolute_sigma=True,
                                            **curve_fit_kwargs)
                     covt = np.diag(covt)**0.5
@@ -462,6 +428,87 @@ def gaussian(data, specax, uncertainty=None, axis=0, smooth=None, v0=None,
                 params[1::2, y, x] = covt
     return params
 
-def _gaussian(x, x0, dx, A):
-    """Gaussian function, ``dx`` is the Doppler width."""
-    return A * np.exp(-((x-x0)/dx)**2)
+
+def gausshermite(data, specax, uncertainty=None, axis=0, v0=None, Fnu=None,
+                 dV=None, curve_fit_kwargs=None):
+    """
+    Fits a Hermite expansion of a Gaussian line profile to each pixel. This
+    allows for measures of skewness and kurtosis to be made.
+
+    Initial guesses of the parameters can be proved through the ``v0``, ``Fnu``
+    and ``dV`` arguments. If any of these three values are ``np.nan`` for a
+    pixel, that pixel is skipped in the fitting.
+
+    The uncertainties are those estimated by ``scipy.optimize.curve_fit`` and
+    will not take into account any correlations.
+    """
+
+    # Need to do some data rotation here.
+    if axis != 0:
+        raise NotImplementedError("Can only collapse along the zeroth axis.")
+    assert specax.size == data.shape[0]
+    shape = data.shape[1:]
+
+    # Define the velocity axis and uncertainties.
+    sigma = np.nanstd(data) if uncertainty is None else uncertainty
+    if isinstance(sigma, float):
+        sigma = np.ones(data.shape) * sigma
+    elif sigma.shape == shape:
+        sigma = np.ones(data.shape) * sigma[None, :, :]
+    assert sigma.shape == data.shape, "sigma and data do not match shapes"
+
+    # Cycle through initial guesses fitting the data.
+    v0 = np.ones(shape=shape) * np.mean(specax) if v0 is None else v0
+    assert v0.shape == shape, "Wrong shape in starting ``v0`` values."
+    Fnu = np.nanmax(data, axis=0) if Fnu is None else Fnu
+    assert Fnu.shape == shape, "Wrong shape in starting ``Fnu`` values."
+    dV = np.ones(shape=shape) * 5.0 * np.diff(specax)[0] if dV is None else dV
+    assert dV.shape == shape, "Wrong shape in starting ``dV`` values."
+    mask = np.all(np.isfinite([v0, Fnu, dV]), axis=0)
+
+    # Set the fitting parameters.
+    from scipy.optimize import curve_fit
+    params = np.ones(shape=(10, shape[0], shape[1])) * np.nan
+    curve_fit_kwargs = {} if curve_fit_kwargs is None else curve_fit_kwargs
+    curve_fit_kwargs['maxfev'] = curve_fit_kwargs.pop('maxfev', 100000)
+
+    # Cycle through the pixels applying the fit.
+    # Skip over the points which do not have a good initial guess.
+    for y in range(shape[0]):
+        for x in range(shape[1]):
+            if mask[y, x]:
+                try:
+                    f0 = np.isfinite(data[:, y, x])
+                    p0 = [v0[y, x], dV[y, x], Fnu[y, x], 0.0, 0.0]
+                    popt, covt = curve_fit(_gaussian_hermite, specax[f0],
+                                           data[f0, y, x], p0=p0,
+                                           sigma=sigma[f0, y, x],
+                                           absolute_sigma=True,
+                                           **curve_fit_kwargs)
+                    covt = np.diag(covt)**0.5
+                except:
+                    popt = np.ones(5) * np.nan
+                    covt = np.ones(5) * np.nan
+                params[::2, y, x] = popt
+                params[1::2, y, x] = covt
+    return params
+
+
+def _H3(x):
+    """Third Hermite polynomial."""
+    return (2 * x**3 - 3 * x) * 3**-0.5
+
+
+def _H4(x):
+    """Fourth Hermite polynomial."""
+    return (4 * x**4 - 12 * x**2 + 3) * 24**-0.5
+
+
+def _gaussian_hermite(v, v0, dV, A, h3=0.0, h4=0.0):
+    """Gauss-Hermite expanded line profile. ``dV`` is the Doppler width."""
+    x = 1.4142135623730951 * (v - v0) / dV
+    if h3 != 0.0 or h4 != 0.0:
+        corr = 1.0 + h3 * _H3(x) + h4 * _H4(x)
+    else:
+        corr = 1.0
+    return A * np.exp(-x**2 / 2) * corr

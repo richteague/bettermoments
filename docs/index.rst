@@ -24,7 +24,7 @@ directory,
 
 .. code-block:: bash
 
-    pip install .
+    pip install bettermoments
 
 and you're done! A full pip-installable package is coming soon.
 
