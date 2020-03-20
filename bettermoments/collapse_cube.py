@@ -40,11 +40,11 @@ def collapse_gaussian(velax, data, smooth=None, rms=None, threshold=3.0, N=5,
 
     Returns:
         ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
-            ``gv0``, the line center in the same units as ``velax`` with ``gdv0``
-            as the uncertainty on ``v0`` in the same units as ``velax``.
-            ``gdV`` is the Doppler linewidth of the Gaussian fit in the same
-            units as ``velax`` with uncertainty ``gddV``. ``gFnu`` is the line
-            peak in the same units as the ``data`` with associated
+            ``gv0``, the line center in the same units as ``velax`` with
+            ``gdv0`` as the uncertainty on ``v0`` in the same units as
+            ``velax``. ``gdV`` is the Doppler linewidth of the Gaussian fit in
+            the same units as ``velax`` with uncertainty ``gddV``. ``gFnu`` is
+            the line peak in the same units as the ``data`` with associated
             uncertainties, ``gdFnu``.
     """
 
@@ -157,8 +157,9 @@ def collapse_zeroth(velax, data, rms=None, N=5, threshold=None, mask_path=None,
 
 def collapse_maximum(velax, data, rms=None, N=5, axis=0):
     """
-    A wrapper returning the result of both :func:`bettermoments.collapse_cube.collapse_eighth`
-    and :func:`bettermoments.collapse_cube.collapse_ninth`.
+    A wrapper returning the result of both
+    :func:`bettermoments.collapse_cube.collapse_eighth` and
+    :func:`bettermoments.collapse_cube.collapse_ninth`.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -179,8 +180,9 @@ def collapse_maximum(velax, data, rms=None, N=5, axis=0):
     from bettermoments.methods import peak_pixel
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     M9, dM9, M8 = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
-    dM8 = rms * np.ones(v0.shape)
+    dM8 = rms * np.ones(M8.shape)
     return M8, dM8, M9, dM9
+
 
 def collapse_eighth(data, rms=None, N=5, axis=0):
     """
@@ -207,6 +209,7 @@ def collapse_eighth(data, rms=None, N=5, axis=0):
     dM8 = rms * np.ones(M8.shape)
     return M8, dM8
 
+
 def collapse_ninth(velax, data, rms=None, N=5, axis=0):
     """
     Take the velocity of the peak intensity along the provided axis. The
@@ -231,6 +234,7 @@ def collapse_ninth(velax, data, rms=None, N=5, axis=0):
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     M9, dM9, _ = peak_pixel(data=data, x0=velax[0], dx=chan, axis=axis)
     return M9, dM9
+
 
 def collapse_first(velax, data, rms=None, N=5, threshold=None, mask_path=None,
                    axis=0):
@@ -278,6 +282,7 @@ def collapse_first(velax, data, rms=None, N=5, threshold=None, mask_path=None,
     rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
     return first(data=data, x0=velax[0], dx=chan, rms=rms, threshold=threshold,
                  mask_path=mask_path, axis=axis)
+
 
 def collapse_second(velax, data, rms=None, N=5, threshold=None, mask_path=None,
                     axis=0):
@@ -343,8 +348,9 @@ def collapse_width(velax, data, linewidth=0.0, rms=None, N=5, threshold=None,
 
     where :math:`F_{\nu}` is the peak value of the line and :math:`\Delta V` is
     the Doppler width of the line. As :math:`M_0` and :math:`F_{\nu}` are
-    readily calculated using :func:`bettermoments.collapse_cube.collapse_zeroth`
-    and :func:`bettermoments.collapse_cube.collapse_quadratic`, respectively,
+    readily calculated using
+    :func:`bettermoments.collapse_cube.collapse_zeroth` and
+    :func:`bettermoments.collapse_cube.collapse_quadratic`, respectively,
     :math:`\Delta V` can calculated through :math:`\Delta V = M_{0} \, / \,
     (\sqrt{\pi} \, F_{\nu})`. This should be more robust against noise than
     second moment maps.
@@ -454,9 +460,13 @@ def _collapse_beamtable(path):
     """Returns the median beam from the CASA beam table if present."""
     header = fits.getheader(path)
     if header.get('CASAMBM', False):
-        beam = fits.open(path)[1].data
-        beam = np.median([b[:3] for b in beam.view()], axis=0)
-        return beam[0] / 3600., beam[1] / 3600., beam[2]
+        try:
+            beam = fits.open(path)[1].data
+            beam = np.median([b[:3] for b in beam.view()], axis=0)
+            return beam[0] / 3600., beam[1] / 3600., beam[2]
+        except IndexError:
+            print('WARNING: No beam table found despite CASAMBM flag.')
+            return abs(header['cdelt1']), abs(header['cdelt2']), 0.0
     try:
         return header['bmaj'], header['bmin'], header['bpa']
     except KeyError:
@@ -491,6 +501,7 @@ def _get_bunits(path):
     bunits['gddV'] = bunits['gdV']
     return bunits
 
+
 def _write_header(path, bunit):
     """Write a new header for the saved file."""
     header = fits.getheader(path, copy=True)
@@ -514,7 +525,10 @@ def _write_header(path, bunit):
     try:
         new_header['RESTFRQ'] = header['RESTFRQ']
     except KeyError:
-        new_header['RESTFREQ'] = header['RESTFREQ']
+        try:
+            new_header['RESTFREQ'] = header['RESTFREQ']
+        except KeyError:
+            new_header['RESTFREQ'] = 0.0
     try:
         new_header['SPECSYS'] = header['SPECSYS']
     except KeyError:
@@ -682,6 +696,7 @@ def main():
         bunit = bunits[map_name]
         _save_array(args.path, outname, map_file,
                     overwrite=args.overwrite, bunit=bunit)
+
 
 if __name__ == '__main__':
     main()
