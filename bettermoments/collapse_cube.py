@@ -616,8 +616,9 @@ def main():
     parser.add_argument('-fill', default=np.nan, type=float,
                         help='Fill value for masked pixels. Default is NaN.')
     parser.add_argument('-smooth', default=0.0, type=float,
-                        help='The FWHM of a Gaussian kernel to smooth the '
-                             'data in velocity space prior to collapsing.')
+                        help='The width of the filter for a second-order '
+                             'Savitzky-Golay filter. While reducing the noise '
+                             'this filter will dilute Fnu values.')
     parser.add_argument('-rms', default=None, type=float,
                         help='Estimated RMS noise from a line free channel. '
                              'Same units as the brightness unit.')
@@ -672,11 +673,13 @@ def main():
     # Presmooth the data with a Gaussian filter. Use astropy to handle NaNs.
 
     if args.smooth > 0.0:
-        from scipy.ndimage.filters import gaussian_filter1d
         if not args.silent:
             print("Smoothing data...")
-        width = args.smooth / abs(np.diff(velax)[0]) / 2.355
-        data = gaussian_filter1d(data, width, mode='wrap')
+        from scipy.signal import savgol_filter
+        width = int(args.smooth / abs(np.diff(velax)[0]))
+        width = width + 1 if not width % 2 else width
+        data = savgol_filter(data, width, polyorder=2,
+                             mode='wrap', axis=0)
 
     # Collapse the cube with the approrpriate method.
 
