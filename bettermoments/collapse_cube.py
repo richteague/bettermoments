@@ -68,7 +68,7 @@ def collapse_gausshermite(velax, data, rms=None, threshold=3.0, N=5, axis=0):
     Collapse the cube by fitting a Hermite expansion of a Gaussians to each
     pixel. This allows for a flexible line profile that purely a Gaussian,
     where the ``h3`` and ``h4`` terms quantify the skewness and kurtosis of the
-    line as in `_van der Marel & Franx (1993)`_.
+    line as in `van der Marel & Franx (1993)`_.
 
     To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
     utilises non-linear least squares, the
@@ -731,7 +731,7 @@ def main():
     elif args.method == 'width':
         dV, ddV = collapse_width(velax=velax, data=data, threshold=args.clip,
                                  rms=args.rms, N=args.N, mask_path=args.mask,
-                                 axis=args.axis, linewidth=args.linewidth)
+                                 axis=args.axis)
         tosave['dV'], tosave['ddV'] = dV, ddV
 
     elif args.method == 'gaussian':

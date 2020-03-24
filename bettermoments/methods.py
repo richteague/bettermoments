@@ -1,20 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division, print_function
-
-__all__ = ["integrated_intensity",
-           "intensity_weighted_velocity",
-           "intensity_weighted_dispersion",
-           "peak_pixel",
-           "quadratic",
-           "gaussian"]
-
 import numpy as np
-
-try:
-    from scipy.ndimage.filters import gaussian_filter1d, _gaussian_kernel1d
-except ImportError:
-    gaussian_filter1d = None
 
 
 def _read_mask_path(mask_path, data):
