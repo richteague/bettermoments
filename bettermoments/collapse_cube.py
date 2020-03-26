@@ -12,8 +12,11 @@ from scipy.ndimage.filters import convolve1d
 
 
 def collapse_gaussian(velax, data, rms=None, threshold=3.0, N=5, axis=0):
-    """
-    Collapse the cube by fitting Gaussians to each pixel.
+    r"""
+    Collapse the cube by fitting Gaussians to each pixel,
+
+    .. math::
+        I(v) = F_{\nu} \times \exp \left[ -\frac{(v-v_0)^2}{\Delta V^2} \right]
 
     To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
     utilises non-linear least squares, the
@@ -61,6 +64,64 @@ def collapse_gaussian(velax, data, rms=None, threshold=3.0, N=5, axis=0):
     from bettermoments.methods import gaussian
     return gaussian(data=data, specax=velax, uncertainty=rms, axis=axis,
                     v0=v0, Fnu=Fnu, dV=dV)
+
+
+def collapse_gaussthick(velax, data, rms=None, threshold=3.0, N=5, axis=0):
+    r"""
+    Collapse the cube by fitting Gaussian to each pixel, including an
+    approximation of an optically thick line core,
+
+    .. math::
+        I(v) = F_{\nu} \big(1 - \exp(\mathcal{G}(v, v0, \Delta V, \tau))\big)
+
+    where :math:`\mathcal{G}` is a Gaussian function.
+
+    To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
+    utilises non-linear least squares, the
+    :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
+    line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
+    method is used to estimate the line width. These values are further used to
+    locate the pixels which will be fit, i.e. those which have ``Fnu / dFnu >=
+    threshold``.
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Flux density or brightness temperature array. Assumes
+            that the zeroth axis is the velocity axis.
+        rms (Optional[float]): Noise per pixel. If ``None`` is specified,
+            this will be calculated from the first and last ``N`` channels.
+        N (Optional[int]): Number of channels to use in the estimation of the
+            noise.
+        axis (Optional[int]): Spectral axis to collapse the cube along, by
+            default ``axis=0``.
+
+    Returns:
+        ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
+            ``gv0``, the line center in the same units as ``velax`` with
+            ``gdv0`` as the uncertainty on ``v0`` in the same units as
+            ``velax``. ``gdV`` is the Doppler linewidth of the Gaussian fit in
+            the same units as ``velax`` with uncertainty ``gddV``. ``gFnu`` is
+            the line peak in the same units as the ``data`` with associated
+            uncertainties, ``gdFnu``.
+    """
+    # Rorate the axis if necessary.
+    if axis != 0:
+        raise NotImplementedError("Can only collapse along the zeroth axis.")
+
+    # Verfify the data and calculate the noise.
+    rms, chan = _verify_data(data, velax, rms=rms, N=N, axis=axis)
+
+    # Calculate the initial guesses.
+    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms, N=N,
+                                       axis=axis)
+    dV, _ = collapse_width(velax=velax, data=data, rms=rms, N=N,
+                           threshold=threshold, axis=axis)
+    Fnu = np.where(abs(Fnu) / rms > threshold, Fnu, np.nan)
+
+    # Fit the gaussians.
+    from bettermoments.methods import gaussthick
+    return gaussthick(data=data, specax=velax, uncertainty=rms, axis=axis,
+                      v0=v0, Fnu=Fnu, dV=dV)
 
 
 def collapse_gausshermite(velax, data, rms=None, threshold=3.0, N=5, axis=0):
@@ -542,9 +603,11 @@ def _get_bunits(path):
     bunits['gv0'] = bunits['v0']
     bunits['gFnu'] = bunits['Fnu']
     bunits['gdV'] = bunits['dV']
+    bunits['gtau'] = ''
     bunits['dgv0'] = bunits['gv0']
     bunits['dgFnu'] = bunits['gFnu']
     bunits['dgdV'] = bunits['gdV']
+    bunits['dgtau'] = ''
     bunits['ghv0'] = bunits['v0']
     bunits['ghFnu'] = bunits['Fnu']
     bunits['ghdV'] = bunits['dV']
@@ -610,7 +673,8 @@ def main():
     parser.add_argument('-method', default='quadratic',
                         help='Method used to collapse cube. Current available '
                              'methods are: quadratic, maximum, zeroth, first, '
-                             'second, width, gaussian and gausshermite.')
+                             'second, width, gaussian, thickgauss and '
+                             'gausshermite.')
     parser.add_argument('-clip', default=5.0, type=float,
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
@@ -736,10 +800,20 @@ def main():
 
     elif args.method == 'gaussian':
         temp = collapse_gaussian(velax=velax, data=data, rms=args.rms,
-                                 threshold=args.clip, N=args.N, axis=args.axis)
+                                 threshold=args.clip, N=args.N,
+                                 axis=args.axis)
         tosave['gv0'], tosave['dgv0'] = temp[:2]
         tosave['gdV'], tosave['dgdV'] = temp[2:4]
         tosave['gFnu'], tosave['dgFnu'] = temp[4:]
+
+    elif args.method == 'gaussthick':
+        temp = collapse_gaussthick(velax=velax, data=data, rms=args.rms,
+                                   threshold=args.clip, N=args.N,
+                                   axis=args.axis)
+        tosave['gv0'], tosave['dgv0'] = temp[:2]
+        tosave['gdV'], tosave['dgdV'] = temp[2:4]
+        tosave['gFnu'], tosave['dgFnu'] = temp[4:6]
+        tosave['gtau'], tosave['dgtau'] = temp[6:]
 
     elif args.method == 'gausshermite':
         temp = collapse_gausshermite(velax=velax, data=data, rms=args.rms,
