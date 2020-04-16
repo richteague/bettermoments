@@ -679,7 +679,7 @@ def main():
                         help='Mask values below this SNR.')
     parser.add_argument('-fill', default=np.nan, type=float,
                         help='Fill value for masked pixels. Default is NaN.')
-    parser.add_argument('-smooth', default=0.0, type=float,
+    parser.add_argument('-smooth', default=0.0, type=int,
                         help='The width of the filter for a second-order '
                              'Savitzky-Golay filter. While reducing the noise '
                              'this filter will dilute Fnu values.')
@@ -736,11 +736,11 @@ def main():
 
     # Presmooth the data with a Gaussian filter. Use astropy to handle NaNs.
 
-    if args.smooth > 0.0:
+    if args.smooth > 0:
         if not args.silent:
             print("Smoothing data...")
         from scipy.signal import savgol_filter
-        width = int(args.smooth / abs(np.diff(velax)[0]))
+        width = args.smooth + 1
         width = width + 1 if not width % 2 else width
         data = savgol_filter(data, width, polyorder=2,
                              mode='wrap', axis=0)
