@@ -493,8 +493,8 @@ def gaussthick(data, specax, uncertainty=None, axis=0, v0=None, Fnu=None,
                                            **curve_fit_kwargs)
                     covt = np.diag(covt)**0.5
                 except:
-                    popt = np.ones(3) * np.nan
-                    covt = np.ones(3) * np.nan
+                    popt = np.ones(4) * np.nan
+                    covt = np.ones(4) * np.nan
                 params[::2, y, x] = popt
                 params[1::2, y, x] = covt
     params[-2] = np.power(10, params[-2])
