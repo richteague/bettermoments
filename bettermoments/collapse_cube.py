@@ -709,6 +709,12 @@ def _collapse_beamtable(path):
         return abs(header['cdelt1']), abs(header['cdelt2']), 0.0
 
 
+def _get_pix_per_beam(path):
+    """Returns the number of pixels per beam FWHM."""
+    bmaj, _, _ = _collapse_beamtable(path)
+    return bmaj / abs(fits.getheader(path)['cdelt1'])
+
+
 def _save_array(original_path, new_path, array, overwrite=True, bunit=None):
     """Use the header from `original_path` to save a new FITS file."""
     header = _write_header(original_path, bunit)
@@ -742,7 +748,7 @@ def main():
     parser.add_argument('-clip', default=None, nargs='*', type=float,
                         help='Mask absolute values below this SNR.')
     parser.add_argument('-smooththreshold', default=0.0, type=float,
-                        help='Width of filter to smooth threshold map.')
+                        help='Width of filter in beam FWHM to smooth threshold map.')
     parser.add_argument('-combine', default='and',
                         help='How to combine the masks if provided.')
     parser.add_argument('--nooverwrite', action='store_false',
@@ -824,7 +830,8 @@ def main():
             if args.rms is not None and not args.silent:
                 print("WARNING: Convolving threshold mask will reduce RMS")
                 print("\t Provided `rms` may over-estimate the true RMS.")
-            kernel = Gaussian2DKernel(args.smooththreshold)
+            kernel = args.smooththresold * _get_pix_per_beam(args.path)
+            kernel = Gaussian2DKernel(kernel)
             noise = np.squeeze([convolve(c, kernel) for c in noise])
         threshold_mask = np.logical_or(noise / args.rms < args.clip[0],
                                        noise / args.rms > args.clip[-1])

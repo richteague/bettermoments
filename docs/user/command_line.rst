@@ -60,9 +60,8 @@ Threshold Clipping
 
 One of the most common approaches is to apply a 'sigma clip', essentially
 masking any pixels below some user-specified threshold, usual in untis of the
-background RMS. In ``bettermoments`` this is applied with the ``-clip`` argument.
-
-For example,
+background RMS. In ``bettermoments`` this is applied with the ``-clip [value]``
+argument. For example,
 
 .. code-block:: bash
 
@@ -85,6 +84,21 @@ example,
 
 would mask out all pixel values between ``-3 * RMS`` and ``2 * RMS``.
 
+A threshold mask like the above can sometimes leave sharp boundaries if you have
+large spatial gradients in the intensity. To counter this it is possible to
+convolve the threshold mask with a 2D Gaussian kernel to smooth these edges
+with the ``-smooththreshold [width]`` argument where the width is given in units
+of the beam FWHM (or pixel scale if a beam isn't provided). Internally this will
+make a copy of the data, convolve with the appropriate kernel, then generate
+a boolean mask where the convolved map meets the specified ``-clip`` criteria.
+
+.. warning::
+
+    If you choose to smooth the threshold map, remember that the RMS in this
+    image will be reduced due to the smoothing. The automatic calculation of
+    the RMS is done _before_ the smoothing of the map so it will be appropriate
+    to provide a user-specified one with ``-rms [value]``.
+
 User-Defined Masks
 ^^^^^^^^^^^^^^^^^^
 
@@ -96,7 +110,20 @@ as the data in the image cube you can include this with,
 
     bettermoments path/to/cube.fits -mask path/to/mask.fits
 
+Combing Masks
+^^^^^^^^^^^^^
 
+If you've specified both a user-defined mask and provided a ``clip`` value then
+``bettermoments`` will combine the two masks by default using ``AND``. If you
+would rather choose a less conservative ``OR`` combination then you can include
+the ``-combine or`` argument.
+
+Returning Masks
+^^^^^^^^^^^^^^^
+
+It is often useful to have a copy of the mask used to generate the moment map
+such that you can overplot it in channel maps to help make sense of what you're
+seeing. To do this, use the ``--returnmask`` flag.
 
 Help
 ----
