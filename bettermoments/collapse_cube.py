@@ -232,18 +232,14 @@ def collapse_gaussian(velax, data, rms):
     a non-linear least squares fit, the
     :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
     line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
-    method is used to estimate the line width. These values are further used to
-    locate the pixels which will be fit, i.e. those which have ``Fnu / dFnu >=
-    threshold``.
+    method is used to estimate the line width. Pixels that return a ``NaN``
+    are skipped for the line fitting.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
-        data (ndarray): Flux density or brightness temperature array. Assumes
-            that the zeroth axis is the velocity axis.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
         rms (float): Noise per pixel in same units as ``data``.
-        threshold (Optional[float]): SNR ratio to use as a threshold for the
-            Gaussian fits, based on ``Fnu / dFnu`` from the
-            :func:`bettermoments.collapse_cube.quadratic` function.
 
     Returns:
         ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
@@ -307,18 +303,14 @@ def collapse_gaussthick(velax, data, rms, threshold=None):
     utilises non-linear least squares, the
     :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
     line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
-    method is used to estimate the line width. These values are further used to
-    locate the pixels which will be fit, i.e. those which have ``Fnu / dFnu >=
-    threshold``.
+    method is used to estimate the line width. Pixels that return a ``NaN``
+    are skipped for the line fitting.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
-        data (ndarray): Flux density or brightness temperature array. Assumes
-            that the zeroth axis is the velocity axis.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
         rms (float): Noise per pixel in same units as ``data``.
-        threshold (Optional[float]): SNR ratio to use as a threshold for the
-            Gaussian fits, based on ``Fnu / dFnu`` from the
-            :func:`bettermoments.collapse_cube.quadratic` function.
 
     Returns:
         ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
@@ -379,20 +371,16 @@ def collapse_gausshermite(velax, data, rms, threshold=None):
     utilises non-linear least squares, the
     :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
     line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
-    method is used to estimate the line width. These values are further used to
-    locate the pixels which will be fit, i.e. those which have ``Fnu / dFnu >=
-    threshold``.
+    method is used to estimate the line width. Pixels that return a ``NaN``
+    are skipped for the line fitting.
 
     .. _van der Marel & Franx (1993): https://ui.adsabs.harvard.edu/abs/1993ApJ...407..525V/abstract
 
     Args:
         velax (ndarray): Velocity axis of the cube.
-        data (ndarray): Flux density or brightness temperature array. Assumes
-            that the zeroth axis is the velocity axis.
+        data (ndarray): Flux densities or brightness temperature array. Assumes
+            that the first axis is the velocity axis.
         rms (float): Noise per pixel in same units as ``data``.
-        threshold (Optional[float]): SNR ratio to use as a threshold for the
-            Gaussian fits, based on ``Fnu / dFnu`` from the
-            :func:`bettermoments.collapse_cube.quadratic` function.
 
     Returns:
         ``ghv0`` (`ndarray`), ``dghv0`` (`ndarray`), ``ghdV`` (`ndarray`), ``dghdV`` (`ndarray`), ``ghFnu`` (`ndarray`), ``dghFnu`` (`ndarray`), ``ghh3`` (`ndarray`), ``dghh3`` (`ndarray`), ``ghh4`` (`ndarray`), ``dghh4`` (`ndarray`):

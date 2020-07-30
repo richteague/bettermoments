@@ -26,7 +26,7 @@ directory,
 
     pip install bettermoments
 
-and you're done! A full pip-installable package is coming soon.
+and you're done!
 
 .. toctree::
    :maxdepth: 2
