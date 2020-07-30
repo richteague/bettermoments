@@ -37,3 +37,15 @@ while various other methods, discussed further in the documentation, can be acce
 ```bash
 bettermoments path/to/cube.fits -method zeroth
 ```
+
+A quick
+
+```bash
+bettermoments --help
+```
+
+will give a quick overview of what options there are.
+
+## Documentation
+
+More information can be found in the [documentation](https://bettermoments.readthedocs.io/en/latest/?badge=latest).

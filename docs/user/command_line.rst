@@ -96,7 +96,7 @@ a boolean mask where the convolved map meets the specified ``-clip`` criteria.
 
     If you choose to smooth the threshold map, remember that the RMS in this
     image will be reduced due to the smoothing. The automatic calculation of
-    the RMS is done _before_ the smoothing of the map so it will be appropriate
+    the RMS is done before the smoothing of the map so it will be appropriate
     to provide a user-specified one with ``-rms [value]``.
 
 User-Defined Masks
