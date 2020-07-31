@@ -3,7 +3,7 @@
 Frequently Asked Questions
 ==========================
 
-**What's the difference between the ``quadratic`` method and the more typical
-`first`` moment?**
+- What's the difference between the ``quadratic`` method and the more typical
+`first`` moment?
 
-Something.
+    - Something.
