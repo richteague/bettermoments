@@ -9,10 +9,13 @@ bettermoments
       :align: center
 
 
-**bettermoments** creates moment maps of spectral line data and their
+``bettermoments`` creates moment maps of spectral line data and their
 associated uncertainties. The command-line interface makes it as seamless as
 possible to make all the traditional moment maps, in addition other, oftentimes
-more useful, maps. The ``quadratic`` method is described in detail in `Teague & Foreman-Mackey
+more useful, maps. In addition to the many traditional statistical moments,
+``bettermoments`` contains many alternative ways collapse the cube.
+
+The ``quadratic`` method is described in detail in `Teague & Foreman-Mackey
 (2018)`_ while the uncertainties associated with more typical moment maps can
 be found in `Teague (2019)`_.
 

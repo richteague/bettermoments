@@ -3,4 +3,7 @@
 Frequently Asked Questions
 ==========================
 
-Coming soon.
+**What's the difference between the ``quadratic`` method and the more typical
+`first`` moment?**
+
+Something.
