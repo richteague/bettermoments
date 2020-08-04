@@ -19,7 +19,7 @@ setuptools.setup(
     description=("Robust moment map making."),
     long_description=long_description,
     long_description_content_type="text/markdown",
-    install_requires=["numpy", "astropy", "argparse"],
+    install_requires=["numpy", "astropy", "argparse", "tqdm"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

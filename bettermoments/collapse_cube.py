@@ -8,8 +8,10 @@ TODO:
 
 import argparse
 import numpy as np
+from tqdm import tqdm
 from astropy.io import fits
 import scipy.constants as sc
+
 
 # -- Standard Moment Maps -- #
 
@@ -46,7 +48,7 @@ def collapse_zeroth(velax, data, rms):
             ``M0``, the integrated intensity along provided axis and ``dM0``,
             the uncertainty on ``M0`` in the same units as ``M0``.
     """
-    chan = abs(np.diff(velax).mean())
+    chan = np.diff(velax).mean()
     npix = np.sum(data != 0.0, axis=0)
     M0 = np.trapz(data, dx=chan, axis=0)
     dM0 = chan * rms * npix**0.5 * np.ones(M0.shape)
@@ -93,7 +95,7 @@ def collapse_first(velax, data, rms):
             ``velax`` and ``dM1``, the uncertainty in the intensity weighted
             average velocity with same units as ``v0``.
     """
-    chan = abs(np.diff(velax).mean())
+    chan = np.diff(velax).mean()
     vpix = chan * np.arange(data.shape[0]) + velax[0]
     vpix = vpix[:, None, None] * np.ones(data.shape)
 
@@ -148,7 +150,7 @@ def collapse_second(velax, data, rms):
             ``M2`` is the intensity weighted velocity dispersion with units of
             ``velax``.  ``dM2`` is the unceratinty of ``M2`` in the same units.
     """
-    chan = abs(np.diff(velax).mean())
+    chan = np.diff(velax).mean()
     vpix = chan * np.arange(data.shape[0]) + velax[0]
     vpix = vpix[:, None, None] * np.ones(data.shape)
 
@@ -254,39 +256,42 @@ def collapse_gaussian(velax, data, rms):
 
     v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms)
     dV, _ = collapse_width(velax=velax, data=data, rms=rms)
+    p0 = np.squeeze([v0, dV, Fnu])
 
     sigma = rms * np.ones(velax.shape)
     fits = np.ones((6, data.shape[1], data.shape[2])) * np.nan
 
-    for y in range(data.shape[1]):
-        for x in range(data.shape[2]):
+    with tqdm(total=np.all(np.isfinite(p0), axis=0).sum()) as pbar:
+        for y in range(data.shape[1]):
+            for x in range(data.shape[2]):
 
-            p0 = [v0[y, x], dV[y, x], Fnu[y, x]]
-            if any(np.isnan(p0)):
-                continue
+                p0_tmp = p0[:, y, x]
+                if any(np.isnan(p0_tmp)):
+                    continue
 
-            f0 = data[:, y, x].copy()
-            f0 = np.isfinite(f0) & (f0 != 0.0)
+                f0 = data[:, y, x].copy()
+                f0 = np.isfinite(f0) & (f0 != 0.0)
 
-            x_tmp = velax[f0]
-            y_tmp = data[f0, y, x]
-            dytmp = sigma[f0]
+                x_tmp = velax[f0]
+                y_tmp = data[f0, y, x]
+                dytmp = sigma[f0]
 
-            try:
-                popt, covt = curve_fit(_gaussian, x_tmp, y_tmp,
-                                       sigma=dytmp, p0=p0,
-                                       absolute_sigma=True,
-                                       maxfev=1000000)
-                covt = np.diag(covt)**0.5
-            except:
-                popt = np.ones(3) * np.nan
-                covt = np.ones(3) * np.nan
+                try:
+                    popt, covt = curve_fit(_gaussian, x_tmp, y_tmp,
+                                           sigma=dytmp, p0=p0_tmp,
+                                           absolute_sigma=True,
+                                           maxfev=1000000)
+                    covt = np.diag(covt)**0.5
+                except:
+                    popt = np.ones(3) * np.nan
+                    covt = np.ones(3) * np.nan
 
-            fits[::2, y, x] = popt
-            fits[1::2, y, x] = covt
+                fits[::2, y, x] = popt
+                fits[1::2, y, x] = covt
+                pbar.update(1)
 
     v0, dV0, dV, ddV, Fnu, dFnu = fits
-    return v0, dV0, dV, ddV, Fnu, dFnu
+    return v0, dV0, abs(dV), ddV, Fnu, dFnu
 
 
 def collapse_gaussthick(velax, data, rms, threshold=None):
@@ -325,39 +330,42 @@ def collapse_gaussthick(velax, data, rms, threshold=None):
 
     v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms)
     dV, _ = collapse_width(velax=velax, data=data, rms=rms)
+    p0 = np.squeeze([v0, dV, Fnu, np.ones(v0.shape)])
 
     sigma = rms * np.ones(velax.shape)
     fits = np.ones((8, data.shape[1], data.shape[2])) * np.nan
 
-    for y in range(data.shape[1]):
-        for x in range(data.shape[2]):
+    with tqdm(total=np.all(np.isfinite(p0), axis=0).sum()) as pbar:
+        for y in range(data.shape[1]):
+            for x in range(data.shape[2]):
 
-            p0 = [v0[y, x], dV[y, x], Fnu[y, x], 1.0]
-            if any(np.isnan(p0)):
-                continue
+                p0_tmp = p0[:, y, x]
+                if any(np.isnan(p0_tmp)):
+                    continue
 
-            f0 = data[:, y, x].copy()
-            f0 = np.isfinite(f0) & (f0 != 0.0)
+                f0 = data[:, y, x].copy()
+                f0 = np.isfinite(f0) & (f0 != 0.0)
 
-            x_tmp = velax[f0]
-            y_tmp = data[f0, y, x]
-            dytmp = sigma[f0]
+                x_tmp = velax[f0]
+                y_tmp = data[f0, y, x]
+                dytmp = sigma[f0]
 
-            try:
-                popt, covt = curve_fit(_gaussian_thick, x_tmp, y_tmp,
-                                       sigma=dytmp, p0=p0,
-                                       absolute_sigma=True,
-                                       maxfev=1000000)
-                covt = np.diag(covt)**0.5
-            except:
-                popt = np.ones(4) * np.nan
-                covt = np.ones(4) * np.nan
+                try:
+                    popt, covt = curve_fit(_gaussian_thick, x_tmp, y_tmp,
+                                           sigma=dytmp, p0=p0_tmp,
+                                           absolute_sigma=True,
+                                           maxfev=1000000)
+                    covt = np.diag(covt)**0.5
+                except:
+                    popt = np.ones(4) * np.nan
+                    covt = np.ones(4) * np.nan
 
-            fits[::2, y, x] = popt
-            fits[1::2, y, x] = covt
+                fits[::2, y, x] = popt
+                fits[1::2, y, x] = covt
+                pbar.update(1)
 
     v0, dV0, dV, ddV, Fnu, dFnu, tau, dtau = fits
-    return v0, dV0, dV, ddV, Fnu, dFnu, tau, dtau
+    return v0, dV0, abs(dV), ddV, Fnu, dFnu, tau, dtau
 
 
 def collapse_gausshermite(velax, data, rms, threshold=None):
@@ -397,39 +405,42 @@ def collapse_gausshermite(velax, data, rms, threshold=None):
 
     v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms)
     dV, _ = collapse_width(velax=velax, data=data, rms=rms)
+    p0 = np.squeeze([v0, dV, Fnu, np.ones(v0.shape), np.ones(v0.shape)])
 
     sigma = rms * np.ones(velax.shape)
     fits = np.ones((10, data.shape[1], data.shape[2])) * np.nan
 
-    for y in range(data.shape[1]):
-        for x in range(data.shape[2]):
+    with tqdm(total=np.all(np.isfinite(p0), axis=0).sum()) as pbar:
+        for y in range(data.shape[1]):
+            for x in range(data.shape[2]):
 
-            p0 = [v0[y, x], dV[y, x], Fnu[y, x], 0.0, 0.0]
-            if any(np.isnan(p0)):
-                continue
+                p0_tmp = p0[:, y, x]
+                if any(np.isnan(p0_tmp)):
+                    continue
 
-            f0 = data[:, y, x].copy()
-            f0 = np.isfinite(f0) & (f0 != 0.0)
+                f0 = data[:, y, x].copy()
+                f0 = np.isfinite(f0) & (f0 != 0.0)
 
-            x_tmp = velax[f0]
-            y_tmp = data[f0, y, x]
-            dytmp = sigma[f0]
+                x_tmp = velax[f0]
+                y_tmp = data[f0, y, x]
+                dytmp = sigma[f0]
 
-            try:
-                popt, covt = curve_fit(_gaussian_hermite, x_tmp, y_tmp,
-                                       sigma=dytmp, p0=p0,
-                                       absolute_sigma=True,
-                                       maxfev=1000000)
-                covt = np.diag(covt)**0.5
-            except:
-                popt = np.ones(5) * np.nan
-                covt = np.ones(5) * np.nan
+                try:
+                    popt, covt = curve_fit(_gaussian_hermite, x_tmp, y_tmp,
+                                           sigma=dytmp, p0=p0_tmp,
+                                           absolute_sigma=True,
+                                           maxfev=1000000)
+                    covt = np.diag(covt)**0.5
+                except:
+                    popt = np.ones(5) * np.nan
+                    covt = np.ones(5) * np.nan
 
-            fits[::2, y, x] = popt
-            fits[1::2, y, x] = covt
+                fits[::2, y, x] = popt
+                fits[1::2, y, x] = covt
+                pbar.update(1)
 
     v0, dV0, dV, ddV, Fnu, dFnu, H3, dH3, H4, dH4 = fits
-    return v0, dV0, dV, ddV, Fnu, dFnu, H3, dH3, H4, dH4
+    return v0, dV0, abs(dV), ddV, Fnu, dFnu, H3, dH3, H4, dH4
 
 
 def _H3(x):
@@ -445,10 +456,7 @@ def _H4(x):
 def _gaussian_hermite(v, v0, dV, A, h3=0.0, h4=0.0):
     """Gauss-Hermite expanded line profile. ``dV`` is the Doppler width."""
     x = 1.4142135623730951 * (v - v0) / dV
-    if h3 != 0.0 or h4 != 0.0:
-        corr = 1.0 + h3 * _H3(x) + h4 * _H4(x)
-    else:
-        corr = 1.0
+    corr = 1.0 + h3 * _H3(x) + h4 * _H4(x)
     return A * np.exp(-x**2 / 2) * corr
 
 
@@ -491,7 +499,7 @@ def collapse_quadratic(velax, data, rms):
             ``data`` with associated uncertainties, ``dFnu``.
     """
     from bettermoments.quadratic import quadratic
-    chan = abs(np.diff(velax).mean())
+    chan = np.diff(velax).mean()
     return quadratic(data, x0=velax[0], dx=chan, uncertainty=rms)
 
 
@@ -557,8 +565,8 @@ def collapse_width(velax, data, rms):
     M0, dM0 = collapse_zeroth(velax=velax, data=data, rms=rms)
     _, _, Fnu, dFnu = collapse_quadratic(velax=velax, data=data, rms=rms)
     dV = M0 / Fnu / np.sqrt(np.pi)
-    ddV = abs(dV) * np.hypot(dFnu / Fnu, dM0 / M0)
-    return dV, ddV
+    ddV = dV * np.hypot(dFnu / Fnu, dM0 / M0)
+    return abs(dV), abs(ddV)
 
 
 def _get_bunits(path):
@@ -781,6 +789,7 @@ def main():
     if not args.silent:
         print("Loading up data...")
     data, velax, bunits = _get_cube(args.path)
+
     if args.mask is None:
         user_mask = np.ones(data.shape)
     else:
@@ -822,17 +831,26 @@ def main():
     if args.clip is not None:
         if len(args.clip) == 1:
             args.clip = [-args.clip[0], args.clip[0]]
-        noise = data.copy()
         if args.smooththreshold > 0.0:
             if not args.silent:
                 print("Smoothing threshold map. May take a while...")
             from astropy.convolution import convolve, Gaussian2DKernel
+            kernel = args.smooththreshold * _get_pix_per_beam(args.path)
+            kernel = Gaussian2DKernel(kernel)
+            noise = []
+            with tqdm(total=data.shape[0]) as pbar:
+                for c in data.copy():
+                    noise += [convolve(c, kernel)]
+                    pbar.update(1)
+            noise = np.squeeze(noise)
             if args.rms is not None and not args.silent:
                 print("WARNING: Convolving threshold mask will reduce RMS")
                 print("\t Provided `rms` may over-estimate the true RMS.")
-            kernel = args.smooththresold * _get_pix_per_beam(args.path)
-            kernel = Gaussian2DKernel(kernel)
-            noise = np.squeeze([convolve(c, kernel) for c in noise])
+            if noise.shape != data.shape:
+                raise ValueError("Incorrect smoothing of threshold mask.")
+        else:
+            noise = data.copy()
+
         threshold_mask = np.logical_or(noise / args.rms < args.clip[0],
                                        noise / args.rms > args.clip[-1])
         threshold_mask = threshold_mask.astype('float')
