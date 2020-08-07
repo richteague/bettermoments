@@ -863,6 +863,12 @@ def main():
     combined_mask = args.combine(user_mask, threshold_mask) * velo_mask
     masked_data = np.where(combined_mask, data, 0.0)
 
+    # Reverse the direction if the velocity axis is decreasing.
+
+    if np.diff(velax).mean() < 0:
+        masked_data = masked_data[::-1]
+        velax = velax[::-1]
+
     # Calculate the moments.
 
     if not args.silent:
