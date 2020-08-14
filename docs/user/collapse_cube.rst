@@ -12,6 +12,11 @@ In general, for the generated moment maps, ``MX``, where ``X`` is an integer
 denotes a statistical moment. For the non-traditional methods, ``v0``, ``dV``
 and ``Fnu`` represent the line center, width and peak, respectively.
 
+.. note::
+    The convolution for ``smooththreshold`` is currently experimental and is
+    work in progress. If things look suspicious, please raise an issue.
+
+
 
 Moment Maps
 -----------
