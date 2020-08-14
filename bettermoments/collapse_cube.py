@@ -832,20 +832,34 @@ def main():
         if len(args.clip) == 1:
             args.clip = [-args.clip[0], args.clip[0]]
         if args.smooththreshold > 0.0:
+            from astropy.convolution import convolve_fft, Gaussian2DKernel
             if not args.silent:
                 print("Smoothing threshold map. May take a while...")
-            from astropy.convolution import convolve, Gaussian2DKernel
+
+            try:
+                import pyfftw
+                from pyfftw.builders import fftn as _fftn
+                pyfftw.config.NUM_THREADS = 64
+
+                def fftn(a):
+                    return _fftn(a)()
+
+            except ImportError:
+                from scipy.fft import fftn
+                if not args.silent:
+                    print("Install pyfftw for faster convolution.")
+
             kernel = args.smooththreshold * _get_pix_per_beam(args.path)
             kernel = Gaussian2DKernel(kernel)
             noise = []
             with tqdm(total=data.shape[0]) as pbar:
                 for c in data.copy():
-                    noise += [convolve(c, kernel)]
+                    noise += [convolve_fft(c, kernel, fftn=fftn)]
                     pbar.update(1)
             noise = np.squeeze(noise)
             if args.rms is not None and not args.silent:
-                print("WARNING: Convolving threshold mask will reduce RMS")
-                print("\t Provided `rms` may over-estimate the true RMS.")
+                print("WARNING: Convolving threshold mask will reduce the RMS")
+                print(".\t Provided `rms` may over-estimate the true RMS.")
             if noise.shape != data.shape:
                 raise ValueError("Incorrect smoothing of threshold mask.")
         else:
