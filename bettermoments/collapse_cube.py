@@ -743,9 +743,9 @@ def main():
                         help='Width of filter to smooth spectrally.')
     parser.add_argument('-kernel', default='savitzkygolay',
                         help='Kernel type to use for spectral smoothing.')
-    parser.add_argument('-rms', default=None,
+    parser.add_argument('-rms', default=None, type=float,
                         help='Estimated uncertainty on each pixel.')
-    parser.add_argument('-noisechannels', default=5,
+    parser.add_argument('-noisechannels', default=5, type=int,
                         help='Number of end channels to use to estimate RMS.')
     parser.add_argument('-mask', default=None,
                         help='Path to the mask FITS cube.')
@@ -773,7 +773,7 @@ def main():
     if args.kernel not in ['gaussian', 'savitzkygolay']:
         raise ValueError("`kernel` must be `gaussian` or `savitzkygolay`.")
 
-    if not isinstance(args.noisechannels, int) or args.noisechannels < 1:
+    if args.noisechannels < 1:
         raise ValueError("`noisechannels` must an integer greater than 1.")
 
     args.combine = args.combine.lower()
