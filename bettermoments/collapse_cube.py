@@ -918,6 +918,13 @@ def main():
         temp = collapse_quadratic(velax=velax, data=masked_data, rms=args.rms)
         tosave['v0'], tosave['dv0'] = temp[:2]
         tosave['Fnu'], tosave['dFnu'] = temp[2:]
+        if args.clip is not None:
+            temp = tosave['Fnu'] / tosave['dFnu'] >= args.clip[1]
+            temp = np.where(temp, 1.0, np.nan)
+            tosave['v0'] = tosave['v0'] * temp
+            tosave['dv0'] = tosave['dv0'] * temp
+            tosave['Fnu'] = tosave['Fnu'] * temp
+            tosave['dFnu'] = tosave['dFnu'] * temp
 
     elif args.method == 'width':
         dV, ddV = collapse_width(velax=velax, data=masked_data, rms=args.rms)

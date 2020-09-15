@@ -26,7 +26,6 @@ def peak_pixel(data, x0, dx):
     return x0 + dx * x_max, 0.5 * dx, y_max
 
 
-
 def gaussian(data, specax, uncertainty=None, axis=0, v0=None, Fnu=None,
              dV=None, curve_fit_kwargs=None):
     """
