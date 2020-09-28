@@ -35,6 +35,38 @@ For example, to calculate the zeroth moment map,
 
 which will produce a ``*M0.fits`` file with the uncertainties in ``*dM0.fits``.
 
+Smoothing
+---------
+
+It is sometimes useful to smooth along the spectral axis of the data prior to
+calculating the requested moment map. While this can remove high frequency noise
+and usually lead to a better determination of the desired statistic, any level
+of smoothing will reduce peak values of a spectrum, so any statistic based on
+the absolute value of the data will be under-estimated.
+
+Smoothing is achieved with the :code:`-smooth [window]` flag, where the window
+size as the number of channels is given. By default this is a top hat function
+which is applied along the spectral axis prior to any other calculations
+(including the estimation of the RMS).
+
+It is possible to request a Savitzky-Golay filter using the additional
+:code:`-polyorder [order]` flag which denotes the order of the polynomal used
+in the filter. Note that this needs to be greater than 1, but also two less than
+the window size.
+
+.. code-block:: bash
+
+    bettermoments path/to/cube/fits -smooth 5
+
+will smooth the data with a top-hat kernel with a width of 5 channels while
+
+.. code-block:: bash
+
+    bettermoments path/to/cube/fits -smooth 5 -polyorder 2
+
+will smooth the data with Savitzky-Golay filter with a window size of 5 channels
+and use a polynomial of order 2.
+
 Masking
 -------
 

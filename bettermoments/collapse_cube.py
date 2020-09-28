@@ -741,8 +741,6 @@ def main():
                         help='Method used to collapse cube.')
     parser.add_argument('-smooth', default=0, type=int,
                         help='Width of filter to smooth spectrally.')
-    parser.add_argument('-kernel', default='savitzkygolay',
-                        help='Kernel type to use for spectral smoothing.')
     parser.add_argument('-rms', default=None, type=float,
                         help='Estimated uncertainty on each pixel.')
     parser.add_argument('-noisechannels', default=5, type=int,
@@ -756,9 +754,11 @@ def main():
     parser.add_argument('-clip', default=None, nargs='*', type=float,
                         help='Mask absolute values below this SNR.')
     parser.add_argument('-smooththreshold', default=0.0, type=float,
-                        help='Width of filter in beam FWHM to smooth threshold map.')
+                        help='Kernel in beam FWHM to smooth threshold map.')
     parser.add_argument('-combine', default='and',
                         help='How to combine the masks if provided.')
+    parser.add_argument('-polyorder', default=0, type=int,
+                        help='Polynomial order to use for SavGol filtering.')
     parser.add_argument('--nooverwrite', action='store_false',
                         help='Do not overwrite files.')
     parser.add_argument('--silent', action='store_true',
@@ -768,10 +768,6 @@ def main():
     args = parser.parse_args()
 
     # Check they all make sense.
-
-    args.kernel = args.kernel.lower()
-    if args.kernel not in ['gaussian', 'savitzkygolay']:
-        raise ValueError("`kernel` must be `gaussian` or `savitzkygolay`.")
 
     if args.noisechannels < 1:
         raise ValueError("`noisechannels` must an integer greater than 1.")
@@ -806,18 +802,23 @@ def main():
 
     # Smooth the data in the spectral dimension.
 
-    if args.smooth > 0:
+    if args.smooth > 1:
         if not args.silent:
             print("Smoothing data along spectral axis...")
-        if args.kernel == 'savitzkygolay':
+        if args.polyorder > 0:
             from scipy.signal import savgol_filter
-            kernel = args.smooth + 1 if not args.smooth % 2 else args.smooth
-            data = savgol_filter(data, kernel, polyorder=min(2, kernel - 1),
+            if not args.smooth % 2:
+                args.smooth += 1
+                if not args.silent:
+                    print("Must have odd window size for savgol_filter.\
+                            Increasing `smooth` by 1.")
+            data = savgol_filter(data, args.smooth,
+                                 polyorder=args.polyorder,
                                  mode='wrap', axis=0)
-        elif args.kernel == 'gaussian':
-            from scipy.ndimage import gaussian_filter1d
-            kernel = args.smooth
-            data = gaussian_filter1d(data, kernel, mode='wrap', axis=0)
+        else:
+            kernel = [1.0 / args.smooth for _ in range(args.smooth)]
+            _conv = lambda arr: np.convolve(arr, kernel, mode='same')
+            data = np.apply_along_axis(_conv, 0, data)
 
     # Calculate the RMS.
 
