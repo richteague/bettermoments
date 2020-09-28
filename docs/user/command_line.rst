@@ -77,8 +77,8 @@ options in ``bettermoments`` to do this.
 Channel Selection
 ^^^^^^^^^^^^^^^^^
 
-The most straight forward is a simple channel selection using the ``-firstchannel``
-and ``-lastchannel`` arguments. By default these span the entire cube range.
+The most straight forward is a simple channel selection using the ``-firstchannel [chan]``
+and ``-lastchannel [chan]`` arguments. By default these span the entire cube range.
 For example,
 
 .. code-block:: bash
