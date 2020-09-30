@@ -759,6 +759,8 @@ def main():
                         help='How to combine the masks if provided.')
     parser.add_argument('-polyorder', default=0, type=int,
                         help='Polynomial order to use for SavGol filtering.')
+    parser.add_argument('-outname', default=None, type=str,
+                        help='Filename prefix for the saved images.')
     parser.add_argument('--nooverwrite', action='store_false',
                         help='Do not overwrite files.')
     parser.add_argument('--silent', action='store_true',
@@ -963,7 +965,11 @@ def main():
         print("Saving maps...")
 
     for map_name in tosave.keys():
-        outname = args.path.replace('.fits', '_{}.fits'.format(map_name))
+        if args.outname is None:
+            outname = args.path.replace('.fits', '_{}.fits'.format(map_name))
+        else:
+            outname = args.outname.replace('.fits', '')
+            outname += '_{}.fits'.format(map_name)
         _save_array(args.path, outname, tosave[map_name],
                     overwrite=args.nooverwrite, bunit=bunits[map_name])
 
