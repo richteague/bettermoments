@@ -730,6 +730,16 @@ def _save_array(original_path, new_path, array, overwrite=True, bunit=None):
                  output_verify='silentfix')
 
 
+def _save_smoothed_data(data, args):
+    """Save the smoothed data for inspection."""
+    header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = 'testing'
+    new_path = args.path.replace('.fits', '_smoothed.fits')
+    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
 def main():
 
     # Parse all the command line arguments.
@@ -767,6 +777,8 @@ def main():
                         help='Do not see how the sausages are made.')
     parser.add_argument('--returnmask', action='store_true',
                         help='Return the masked used as a FITS file.')
+    parser.add_argument('--savesmoothed', action='store_true',
+                        help='Save the intermediate, smoothed cube.')
     args = parser.parse_args()
 
     # Check they all make sense.
@@ -806,7 +818,12 @@ def main():
 
     if args.smooth > 1:
         if not args.silent:
-            print("Smoothing data along spectral axis...")
+            if args.rms is None:
+                _text = " (this will reduced estimated RMS)"
+            else:
+                _text = ""
+            print("Smoothing data along spectral axis{}...".format(_text))
+
         if args.polyorder > 0:
             from scipy.signal import savgol_filter
             if not args.smooth % 2:
@@ -818,9 +835,15 @@ def main():
                                  polyorder=args.polyorder,
                                  mode='wrap', axis=0)
         else:
-            kernel = [1.0 / args.smooth for _ in range(args.smooth)]
-            _conv = lambda arr: np.convolve(arr, kernel, mode='same')
-            data = np.apply_along_axis(_conv, 0, data)
+            from scipy.ndimage import uniform_filter1d
+            data = uniform_filter1d(data, args.smooth,
+                                    mode='wrap', axis=0)
+
+    # Save the smoothed data.
+
+    tosave = {}
+    if args.savesmoothed:
+        _save_smoothed_data(data, args)
 
     # Calculate the RMS.
 
@@ -891,34 +914,47 @@ def main():
     if not args.silent:
         print("Calculating maps...")
 
-    tosave = {}
     if args.method == 'zeroth':
-        M0, dM0 = collapse_zeroth(velax=velax, data=masked_data, rms=args.rms)
+        M0, dM0 = collapse_zeroth(velax=velax,
+                                  data=masked_data,
+                                  rms=args.rms)
         tosave['M0'], tosave['dM0'] = M0, dM0
 
     elif args.method == 'first':
-        M1, dM1 = collapse_first(velax=velax, data=masked_data, rms=args.rms)
+        M1, dM1 = collapse_first(velax=velax,
+                                 data=masked_data,
+                                 rms=args.rms)
         tosave['M1'], tosave['dM1'] = M1, dM1
 
     elif args.method == 'second':
-        M2, dM2 = collapse_second(velax=velax, data=masked_data, rms=args.rms)
+        M2, dM2 = collapse_second(velax=velax,
+                                  data=masked_data,
+                                  rms=args.rms)
         tosave['M2'], tosave['dM2'] = M2, dM2
 
     elif args.method == 'eighth':
-        M8, dM8 = collapse_eighth(velax=velax, data=masked_data, rms=args.rms)
+        M8, dM8 = collapse_eighth(velax=velax,
+                                  data=masked_data,
+                                  rms=args.rms)
         tosave['M8'], tosave['dM8'] = M8, dM8
 
     elif args.method == 'ninth':
-        M9, dM9 = collapse_ninth(velax=velax, data=masked_data, rms=args.rms)
+        M9, dM9 = collapse_ninth(velax=velax,
+                                 data=masked_data,
+                                 rms=args.rms)
         tosave['M9'], tosave['dM9'] = M9, dM9
 
     elif args.method == 'maximum':
-        temp = collapse_maximum(velax=velax, data=masked_data, rms=args.rms)
+        temp = collapse_maximum(velax=velax,
+                                data=masked_data,
+                                rms=args.rms)
         tosave['M8'], tosave['dM8'] = temp[:2]
         tosave['M9'], tosave['dM9'] = temp[2:]
 
     elif args.method == 'quadratic':
-        temp = collapse_quadratic(velax=velax, data=masked_data, rms=args.rms)
+        temp = collapse_quadratic(velax=velax,
+                                  data=masked_data,
+                                  rms=args.rms)
         tosave['v0'], tosave['dv0'] = temp[:2]
         tosave['Fnu'], tosave['dFnu'] = temp[2:]
         if args.clip is not None:
@@ -930,24 +966,32 @@ def main():
             tosave['dFnu'] = tosave['dFnu'] * temp
 
     elif args.method == 'width':
-        dV, ddV = collapse_width(velax=velax, data=masked_data, rms=args.rms)
+        dV, ddV = collapse_width(velax=velax,
+                                 data=masked_data,
+                                 ms=args.rms)
         tosave['dV'], tosave['ddV'] = dV, ddV
 
     elif args.method == 'gaussian':
-        temp = collapse_gaussian(velax=velax, data=masked_data, rms=args.rms)
+        temp = collapse_gaussian(velax=velax,
+                                 data=masked_data,
+                                 rms=args.rms)
         tosave['gv0'], tosave['dgv0'] = temp[:2]
         tosave['gdV'], tosave['dgdV'] = temp[2:4]
         tosave['gFnu'], tosave['dgFnu'] = temp[4:]
 
     elif args.method == 'gaussthick':
-        temp = collapse_gaussthick(velax=velax, data=masked_data, rms=args.rms)
+        temp = collapse_gaussthick(velax=velax,
+                                   data=masked_data,
+                                   rms=args.rms)
         tosave['gv0'], tosave['dgv0'] = temp[:2]
         tosave['gdV'], tosave['dgdV'] = temp[2:4]
         tosave['gFnu'], tosave['dgFnu'] = temp[4:6]
         tosave['gtau'], tosave['dgtau'] = temp[6:]
 
     elif args.method == 'gausshermite':
-        temp = collapse_gausshermite(velax=velax, data=masked_data, rms=args.rms)
+        temp = collapse_gausshermite(velax=velax,
+                                     data=masked_data,
+                                     rms=args.rms)
         tosave['ghv0'], tosave['dghv0'] = temp[:2]
         tosave['ghdV'], tosave['dghdV'] = temp[2:4]
         tosave['ghFnu'], tosave['dghFnu'] = temp[4:6]
