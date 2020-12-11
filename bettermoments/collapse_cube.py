@@ -734,8 +734,21 @@ def _save_smoothed_data(data, args):
     """Save the smoothed data for inspection."""
     header = fits.getheader(args.path, copy=True)
     header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = 'testing'
+    header['COMMENT'] = '-smooth {}'.format(args.smooth)
+    header['COMMENT'] = '-polyorder {}'.format(args.polyorder)
     new_path = args.path.replace('.fits', '_smoothed.fits')
+    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
+def _save_mask(data, args):
+    """Save the smoothed data for inspection."""
+    header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = '-clip {}'.format(args.clip)
+    header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
+    header['COMMENT'] = '-combine {}'.format(args.combine)
+    new_path = args.path.replace('.fits', '_mask.fits')
     fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
                  output_verify='silentfix')
 
@@ -777,7 +790,7 @@ def main():
                         help='Do not see how the sausages are made.')
     parser.add_argument('--returnmask', action='store_true',
                         help='Return the masked used as a FITS file.')
-    parser.add_argument('--savesmoothed', action='store_true',
+    parser.add_argument('--returnsmoothed', action='store_true',
                         help='Save the intermediate, smoothed cube.')
     args = parser.parse_args()
 
@@ -818,11 +831,9 @@ def main():
 
     if args.smooth > 1:
         if not args.silent:
-            if args.rms is None:
-                _text = " (this will reduced estimated RMS)"
-            else:
-                _text = ""
-            print("Smoothing data along spectral axis{}...".format(_text))
+            _text = "Smoothing data along spectral axis"
+            _text += " (this will reduce the RMS of the cube)..."
+            print(_text)
 
         if args.polyorder > 0:
             from scipy.signal import savgol_filter
@@ -841,8 +852,7 @@ def main():
 
     # Save the smoothed data.
 
-    tosave = {}
-    if args.savesmoothed:
+    if args.returnsmoothed:
         _save_smoothed_data(data, args)
 
     # Calculate the RMS.
@@ -913,6 +923,8 @@ def main():
 
     if not args.silent:
         print("Calculating maps...")
+
+    tosave = {}
 
     if args.method == 'zeroth':
         M0, dM0 = collapse_zeroth(velax=velax,
@@ -1001,7 +1013,7 @@ def main():
         raise ValueError("Unknown method.")
 
     if args.returnmask:
-        tosave['mask'] = combined_mask
+        _save_mask(combined_mask, args)
 
     # Save as FITS files.
 
