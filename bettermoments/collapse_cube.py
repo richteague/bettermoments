@@ -733,22 +733,81 @@ def _save_array(original_path, new_path, array, overwrite=True, bunit=None):
 def _save_smoothed_data(data, args):
     """Save the smoothed data for inspection."""
     header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'smoothed data used for moment map creation'
     header['COMMENT'] = 'made with bettermoments'
     header['COMMENT'] = '-smooth {}'.format(args.smooth)
     header['COMMENT'] = '-polyorder {}'.format(args.polyorder)
-    new_path = args.path.replace('.fits', '_smoothed.fits')
+    new_path = args.path.replace('.fits', '_smoothed_data.fits')
     fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
                  output_verify='silentfix')
 
 
 def _save_mask(data, args):
-    """Save the smoothed data for inspection."""
+    """Save the combined mask for inspection."""
     header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'mask used for moment map creation'
     header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
+    header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
+    header['COMMENT'] = '-mask {}'.format(args.mask)
     header['COMMENT'] = '-clip {}'.format(args.clip)
     header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
     header['COMMENT'] = '-combine {}'.format(args.combine)
     new_path = args.path.replace('.fits', '_mask.fits')
+    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
+def _save_channel_count(data, args):
+    """Save the number of channels used in each pixel."""
+    header = fits.getheader(args.path, copy=True)
+    header['BUNIT'] = 'channels'
+    header['COMMENT'] = 'number of channels used in each pixel'
+    header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
+    header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
+    header['COMMENT'] = '-mask {}'.format(args.mask)
+    header['COMMENT'] = '-clip {}'.format(args.clip)
+    header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
+    header['COMMENT'] = '-combine {}'.format(args.combine)
+    new_path = args.path.replace('.fits', '_channel_count.fits')
+    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
+def _save_threshold_mask(data, args):
+    """Save the smoothed data for inspection."""
+    header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'user-defined threshold mask'
+    header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = '-clip {}'.format(args.clip)
+    header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
+    header['COMMENT'] = '-combine {}'.format(args.combine)
+    new_path = args.path.replace('.fits', '_threshold_mask.fits')
+    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
+def _save_velocity_mask(data, args):
+    """Save the user-defined velocity mask for inspection."""
+    header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'user-defined velocity mask'
+    header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
+    header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
+    new_path = args.path.replace('.fits', '_velocity_mask.fits')
+    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
+def _save_user_mask(data, args):
+    """Save the user-defined velocity mask for inspection."""
+    header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'user-defined mask'
+    header['COMMENT'] = 'made with bettermoments'
+    header['COMMENT'] = '-mask {}'.format(args.mask)
+    header['COMMENT'] = '-combine {}'.format(args.combine)
+    new_path = args.path.replace('.fits', '_user_mask.fits')
     fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
                  output_verify='silentfix')
 
@@ -790,8 +849,9 @@ def main():
                         help='Do not see how the sausages are made.')
     parser.add_argument('--returnmask', action='store_true',
                         help='Return the masked used as a FITS file.')
-    parser.add_argument('--returnsmoothed', action='store_true',
-                        help='Save the intermediate, smoothed cube.')
+    parser.add_argument('--debug', action='store_true',
+                        help='Return all intermediate products to help debug.')
+
     args = parser.parse_args()
 
     # Check they all make sense.
@@ -808,6 +868,7 @@ def main():
         warnings.filterwarnings("ignore")
 
     # Read in the data and the user-defined mask.
+    # If nothing is provided, include all pixels.
 
     if not args.silent:
         print("Loading up data...")
@@ -818,44 +879,50 @@ def main():
     else:
         user_mask = _get_data(args.mask)
         user_mask = user_mask.astype('float')
+    if args.debug:
+        _save_user_mask(user_mask, args)
 
-    # Define the velocity mask.
+    # Define the velocity mask based on first and last channels. If nothing is
+    # provided, use all channels.
 
     if args.lastchannel == -1:
         args.lastchannel = data.shape[0]
     velo_mask = np.ones(data.shape)
     velo_mask[args.lastchannel:] = 0.0
     velo_mask[:args.firstchannel] = 0.0
+    if args.debug:
+        _save_velocity_mask(velo_mask, args)
 
-    # Smooth the data in the spectral dimension.
+    # Smooth the data in the spectral dimension. Uses by default a uniform
+    # (boxcar) filter. If a `polyorder` is provided, assumes the user wants a
+    # Savitzky-Golay filter. In this case, extend all even window sizes by one
+    # to make sure it is an odd number.
 
     if args.smooth > 1:
         if not args.silent:
             _text = "Smoothing data along spectral axis"
             _text += " (this will reduce the RMS of the cube)..."
             print(_text)
-
         if args.polyorder > 0:
             from scipy.signal import savgol_filter
             if not args.smooth % 2:
                 args.smooth += 1
                 if not args.silent:
-                    print("Must have odd window size for savgol_filter.\
-                            Increasing `smooth` by 1.")
-            data = savgol_filter(data, args.smooth,
-                                 polyorder=args.polyorder,
+                    _text = "Must have an odd window size for savgol_filter. "
+                    _text += "Will increase `smooth` by 1 "
+                    _text += "to {:d}.".format(args.smooth)
+                    print(_text)
+            data = savgol_filter(data, args.smooth, polyorder=args.polyorder,
                                  mode='wrap', axis=0)
         else:
             from scipy.ndimage import uniform_filter1d
             data = uniform_filter1d(data, args.smooth,
                                     mode='wrap', axis=0)
+        if args.debug:
+            _save_smoothed_data(data, args)
 
-    # Save the smoothed data.
-
-    if args.returnsmoothed:
-        _save_smoothed_data(data, args)
-
-    # Calculate the RMS.
+    # Calculate the RMS based on the first and last `noisechannels`, which is 5
+    # by default. TODO: Test if there's a better way of doing this...
 
     if args.rms is None:
         args.rms = _estimate_RMS(data, args.noisechannels)
@@ -868,34 +935,19 @@ def main():
         if len(args.clip) == 1:
             args.clip = [-args.clip[0], args.clip[0]]
         if args.smooththreshold > 0.0:
-            from astropy.convolution import convolve_fft, Gaussian2DKernel
+            from scipy.ndimage import gaussian_filter
             if not args.silent:
                 print("Smoothing threshold map. May take a while...")
-
-            try:
-                import pyfftw
-                from pyfftw.builders import fftn as _fftn
-                pyfftw.config.NUM_THREADS = 64
-
-                def fftn(a):
-                    return _fftn(a)()
-
-            except ImportError:
-                from scipy.fft import fftn
-                if not args.silent:
-                    print("Install pyfftw for faster convolution.")
-
-            kernel = args.smooththreshold * _get_pix_per_beam(args.path)
-            kernel = Gaussian2DKernel(kernel)
+            sig = args.smooththreshold * _get_pix_per_beam(args.path) / 2.35
             noise = []
             with tqdm(total=data.shape[0]) as pbar:
                 for c in data.copy():
-                    noise += [convolve_fft(c, kernel, fftn=fftn)]
+                    noise += [gaussian_filter(c, sigma=sig)]
                     pbar.update(1)
             noise = np.squeeze(noise)
             if args.rms is not None and not args.silent:
-                print("WARNING: Convolving threshold mask will reduce the RMS")
-                print(".\t Provided `rms` may over-estimate the true RMS.")
+                print("WARNING: Convolving  mask will reduce the RMS.")
+                print("\t Provided `rms` may over-estimate the true RMS.")
             if noise.shape != data.shape:
                 raise ValueError("Incorrect smoothing of threshold mask.")
         else:
@@ -906,12 +958,18 @@ def main():
         threshold_mask = threshold_mask.astype('float')
     else:
         threshold_mask = np.ones(data.shape)
+    if args.debug:
+        _save_threshold_mask(threshold_mask, args)
 
     # Combine the masks and apply to the data.
 
     args.combine = np.logical_and if args.combine == 'and' else np.logical_or
     combined_mask = args.combine(user_mask, threshold_mask) * velo_mask
     masked_data = np.where(combined_mask, data, 0.0)
+    if args.returnmask or args.debug:
+        _save_mask(combined_mask, args)
+    if args.debug:
+        _save_channel_count(np.sum(combined_mask, axis=0), args)
 
     # Reverse the direction if the velocity axis is decreasing.
 
@@ -1011,9 +1069,6 @@ def main():
         tosave['ghh4'], tosave['dghh4'] = temp[8:]
     else:
         raise ValueError("Unknown method.")
-
-    if args.returnmask:
-        _save_mask(combined_mask, args)
 
     # Save as FITS files.
 
