@@ -9,9 +9,10 @@ TODO:
 import argparse
 import numpy as np
 from tqdm import tqdm
+import multiprocessing
 from astropy.io import fits
 import scipy.constants as sc
-
+from itertools import repeat
 
 # -- Standard Moment Maps -- #
 
@@ -223,252 +224,72 @@ def collapse_ninth(velax, data, rms):
 # -- Line Profile Fitting -- #
 
 
-def collapse_gaussian(velax, data, rms):
+def collapse_analytical(velax, data, rms, model_function, indices=None,
+                        chunks=1, **kwargs):
     r"""
-    Collapse the cube by fitting Gaussians to each pixel,
+    Collapse the cube by fitting an analytical form to each pixel, including
+    the option to use an MCMC sampler which has been found to be more forgiving
+    when it comes to noisy data. The user can also specify ``chunks`` which
+    will split the data into that many chunks and pass each chunk to a separate
+    process using ``multiprocessing.pool``.
 
-    .. math::
-        I(v) = F_{\nu} \times \exp \left[ -\frac{(v-v_0)^2}{\Delta V^2} \right]
-
-    To help the fitting, which is done with ``scipy.optimize.curve_fit`` using
-    a non-linear least squares fit, the
-    :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
-    line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
-    method is used to estimate the line width. Pixels that return a ``NaN``
-    are skipped for the line fitting.
+    For more information on ``kwargs``, see the ``fit_cube`` documentation.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
-        data (ndarray): Flux densities or brightness temperature array. Assumes
-            that the first axis is the velocity axis.
+        data (ndarray): Maksed intensity or brightness temperature array. The
+            first axis must be the velocity axis.
         rms (float): Noise per pixel in same units as ``data``.
+        model_function (str): Name of the model function to fit to the data.
+            Must be a function withing ``profiles.py``.
+        indices (Optional[list]): A list of pixels described by
+            ``(y_idx, x_idx)`` tuples to fit. If none are provided, will fit
+            all pixels.
+        chunks (Optional[int]): Split the cube into ``chunks`` sections and
+            run the fits with separate processes through
+            ``multiprocessing.pool``.
 
     Returns:
-        ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
-            ``gv0``, the line center in the same units as ``velax`` with
-            ``gdv0`` as the uncertainty on ``v0`` in the same units as
-            ``velax``. ``gdV`` is the Doppler linewidth of the Gaussian fit in
-            the same units as ``velax`` with uncertainty ``gddV``. ``gFnu`` is
-            the line peak in the same units as the ``data`` with associated
-            uncertainties, ``gdFnu``.
+        results_array (ndarray): An array containing all the fits. The first
+            axis contains the mean and standard deviation of each posterior
+            distribution.
     """
-    from scipy.optimize import curve_fit
+    from .mcmc_sampling import fit_cube
+    from .profiles import free_params
 
-    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms)
-    dV, _ = collapse_width(velax=velax, data=data, rms=rms)
-    p0 = np.squeeze([v0, dV, Fnu])
+    # Unless provided, fit all spaxels where there are some finite values.
 
-    sigma = rms * np.ones(velax.shape)
-    fits = np.ones((6, data.shape[1], data.shape[2])) * np.nan
+    if indices is None:
+        finite_spaxels = np.sum(np.isfinite(data), axis=0)
+        finite_spaxels = finite_spaxels > 2.0 * free_params(model_function)
+        finite_spaxels = finite_spaxels.flatten()
+        indices = np.indices(data[0].shape).reshape(2, data[0].size).T
+        indices = indices[finite_spaxels]
 
-    with tqdm(total=np.all(np.isfinite(p0), axis=0).sum()) as pbar:
-        for y in range(data.shape[1]):
-            for x in range(data.shape[2]):
+    # Split these pixels evenly into chunks to pass off to processes.
 
-                p0_tmp = p0[:, y, x]
-                if any(np.isnan(p0_tmp)):
-                    continue
+    chunk_edges = np.linspace(0, indices.shape[0], chunks+1)
+    chunk_indices = np.digitize(np.arange(indices.shape[0]), chunk_edges)
+    chunk_indices = [indices[chunk_indices == i] for i in range(1, chunks+1)]
+    chunk_indices = np.array(chunk_indices)
+    assert chunk_indices.shape[0] == chunks
 
-                f0 = data[:, y, x].copy()
-                f0 = np.isfinite(f0) & (f0 != 0.0)
+    # Pass these off to different pools.
 
-                x_tmp = velax[f0]
-                y_tmp = data[f0, y, x]
-                dytmp = sigma[f0]
+    args = [(velax, data, rms, model_function, idx) for idx in chunk_indices]
+    with multiprocessing.Pool(processes=chunks) as pool:
+        results = starmap_with_kwargs(pool, fit_cube, args, repeat(kwargs))
+    results = np.concatenate(results, axis=0)
+    assert results.shape[0] == indices.shape[0]
+    results = results.reshape(results.shape[0], -1)
 
-                try:
-                    popt, covt = curve_fit(_gaussian, x_tmp, y_tmp,
-                                           sigma=dytmp, p0=p0_tmp,
-                                           absolute_sigma=True,
-                                           maxfev=1000000)
-                    covt = np.diag(covt)**0.5
-                except:
-                    popt = np.ones(3) * np.nan
-                    covt = np.ones(3) * np.nan
+    # Populate arrays with results and return.
 
-                fits[::2, y, x] = popt
-                fits[1::2, y, x] = covt
-                pbar.update(1)
-
-    v0, dV0, dV, ddV, Fnu, dFnu = fits
-    return v0, dV0, abs(dV), ddV, Fnu, dFnu
-
-
-def collapse_gaussthick(velax, data, rms, threshold=None):
-    r"""
-    Collapse the cube by fitting Gaussian to each pixel, including an
-    approximation of an optically thick line core,
-
-    .. math::
-        I(v) = F_{\nu} \big(1 - \exp(\mathcal{G}(v, v0, \Delta V, \tau))\big)
-
-    where :math:`\mathcal{G}` is a Gaussian function.
-
-    To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
-    utilises non-linear least squares, the
-    :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
-    line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
-    method is used to estimate the line width. Pixels that return a ``NaN``
-    are skipped for the line fitting.
-
-    Args:
-        velax (ndarray): Velocity axis of the cube.
-        data (ndarray): Flux densities or brightness temperature array. Assumes
-            that the first axis is the velocity axis.
-        rms (float): Noise per pixel in same units as ``data``.
-
-    Returns:
-        ``gv0`` (`ndarray`), ``gdv0`` (`ndarray`), ``gdV`` (`ndarray`), ``gddV`` (`ndarray`), ``gFnu`` (`ndarray`), ``gdFnu`` (`ndarray`):
-            ``gv0``, the line center in the same units as ``velax`` with
-            ``gdv0`` as the uncertainty on ``v0`` in the same units as
-            ``velax``. ``gdV`` is the Doppler linewidth of the Gaussian fit in
-            the same units as ``velax`` with uncertainty ``gddV``. ``gFnu`` is
-            the line peak in the same units as the ``data`` with associated
-            uncertainties, ``gdFnu``.
-    """
-    from scipy.optimize import curve_fit
-
-    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms)
-    dV, _ = collapse_width(velax=velax, data=data, rms=rms)
-    p0 = np.squeeze([v0, dV, Fnu, np.ones(v0.shape)])
-
-    sigma = rms * np.ones(velax.shape)
-    fits = np.ones((8, data.shape[1], data.shape[2])) * np.nan
-
-    with tqdm(total=np.all(np.isfinite(p0), axis=0).sum()) as pbar:
-        for y in range(data.shape[1]):
-            for x in range(data.shape[2]):
-
-                p0_tmp = p0[:, y, x]
-                if any(np.isnan(p0_tmp)):
-                    continue
-
-                f0 = data[:, y, x].copy()
-                f0 = np.isfinite(f0) & (f0 != 0.0)
-
-                x_tmp = velax[f0]
-                y_tmp = data[f0, y, x]
-                dytmp = sigma[f0]
-
-                try:
-                    popt, covt = curve_fit(_gaussian_thick, x_tmp, y_tmp,
-                                           sigma=dytmp, p0=p0_tmp,
-                                           absolute_sigma=True,
-                                           maxfev=1000000)
-                    covt = np.diag(covt)**0.5
-                except:
-                    popt = np.ones(4) * np.nan
-                    covt = np.ones(4) * np.nan
-
-                fits[::2, y, x] = popt
-                fits[1::2, y, x] = covt
-                pbar.update(1)
-
-    v0, dV0, dV, ddV, Fnu, dFnu, tau, dtau = fits
-    return v0, dV0, abs(dV), ddV, Fnu, dFnu, tau, dtau
-
-
-def collapse_gausshermite(velax, data, rms, threshold=None):
-    """
-    Collapse the cube by fitting a Hermite expansion of a Gaussians to each
-    pixel. This allows for a flexible line profile that purely a Gaussian,
-    where the ``h3`` and ``h4`` terms quantify the skewness and kurtosis of the
-    line as in `van der Marel & Franx (1993)`_.
-
-    To help the fitting, which is done with ``scipy.optimize.curve_fit`` which
-    utilises non-linear least squares, the
-    :func:`bettermoments.collapse_cube.quadratic` method is first run to obtain
-    line centers and peaks, while the :func:`bettermoments.collapse_cube.width`
-    method is used to estimate the line width. Pixels that return a ``NaN``
-    are skipped for the line fitting.
-
-    .. _van der Marel & Franx (1993): https://ui.adsabs.harvard.edu/abs/1993ApJ...407..525V/abstract
-
-    Args:
-        velax (ndarray): Velocity axis of the cube.
-        data (ndarray): Flux densities or brightness temperature array. Assumes
-            that the first axis is the velocity axis.
-        rms (float): Noise per pixel in same units as ``data``.
-
-    Returns:
-        ``ghv0`` (`ndarray`), ``dghv0`` (`ndarray`), ``ghdV`` (`ndarray`), ``dghdV`` (`ndarray`), ``ghFnu`` (`ndarray`), ``dghFnu`` (`ndarray`), ``ghh3`` (`ndarray`), ``dghh3`` (`ndarray`), ``ghh4`` (`ndarray`), ``dghh4`` (`ndarray`):
-            ``ghv0``, the line center in the same units as ``velax`` with
-            ``dghv0`` as the uncertainty on ``ghv0`` in the same units as
-            ``velax``. ``ghdV`` is the Doppler linewidth of the Gaussian fit in
-            the same units as ``velax`` with uncertainty ``dghdV``. ``ghFnu``
-            is the line peak in the same units as the ``data`` with associated
-            uncertainties, ``dghFnu``. ``ghh3`` and ``ghh4`` describe the
-            skewness and kurtosis of the line, respectively, with uncertainties
-            ``dghh3`` and ``dghh4``.
-    """
-    from scipy.optimize import curve_fit
-
-    v0, _, Fnu, _ = collapse_quadratic(velax=velax, data=data, rms=rms)
-    dV, _ = collapse_width(velax=velax, data=data, rms=rms)
-    p0 = np.squeeze([v0, dV, Fnu, np.ones(v0.shape), np.ones(v0.shape)])
-
-    sigma = rms * np.ones(velax.shape)
-    fits = np.ones((10, data.shape[1], data.shape[2])) * np.nan
-
-    with tqdm(total=np.all(np.isfinite(p0), axis=0).sum()) as pbar:
-        for y in range(data.shape[1]):
-            for x in range(data.shape[2]):
-
-                p0_tmp = p0[:, y, x]
-                if any(np.isnan(p0_tmp)):
-                    continue
-
-                f0 = data[:, y, x].copy()
-                f0 = np.isfinite(f0) & (f0 != 0.0)
-
-                x_tmp = velax[f0]
-                y_tmp = data[f0, y, x]
-                dytmp = sigma[f0]
-
-                try:
-                    popt, covt = curve_fit(_gaussian_hermite, x_tmp, y_tmp,
-                                           sigma=dytmp, p0=p0_tmp,
-                                           absolute_sigma=True,
-                                           maxfev=1000000)
-                    covt = np.diag(covt)**0.5
-                except:
-                    popt = np.ones(5) * np.nan
-                    covt = np.ones(5) * np.nan
-
-                fits[::2, y, x] = popt
-                fits[1::2, y, x] = covt
-                pbar.update(1)
-
-    v0, dV0, dV, ddV, Fnu, dFnu, H3, dH3, H4, dH4 = fits
-    return v0, dV0, abs(dV), ddV, Fnu, dFnu, H3, dH3, H4, dH4
-
-
-def _H3(x):
-    """Third Hermite polynomial."""
-    return (2 * x**3 - 3 * x) * 3**-0.5
-
-
-def _H4(x):
-    """Fourth Hermite polynomial."""
-    return (4 * x**4 - 12 * x**2 + 3) * 24**-0.5
-
-
-def _gaussian_hermite(v, v0, dV, A, h3=0.0, h4=0.0):
-    """Gauss-Hermite expanded line profile. ``dV`` is the Doppler width."""
-    x = 1.4142135623730951 * (v - v0) / dV
-    corr = 1.0 + h3 * _H3(x) + h4 * _H4(x)
-    return A * np.exp(-x**2 / 2) * corr
-
-
-def _gaussian_thick(v, v0, dV, A, tau):
-    """Gaussian profile with optical depth. ``dV`` is the Doppler width."""
-    tau_profile = _gaussian_hermite(v, v0, dV, tau)
-    return A * (1 - np.exp(-tau_profile))
-
-
-def _gaussian(v, v0, dV, A):
-    """Gaussian profile. ``dV`` is the Doppler width."""
-    return A * np.exp(-np.power((v - v0) / dV, 2.0))
+    results_arrays = np.ones((*data.shape[1:], results.shape[1])) * np.nan
+    for idx, result in zip(indices, results):
+        results_arrays[idx[0], idx[1]] = result
+    results_arrays = np.rollaxis(results_arrays, -1, 0)
+    return results_arrays
 
 
 # -- Non-Traditional Methods -- #
@@ -812,6 +633,17 @@ def _save_user_mask(data, args):
                  output_verify='silentfix')
 
 
+def starmap_with_kwargs(pool, fn, args_iter, kwargs_iter):
+    """Allow us to pass args and kwargs to ``pool.starmap``."""
+    args_for_starmap = zip(repeat(fn), args_iter, kwargs_iter)
+    return pool.starmap(apply_args_and_kwargs, args_for_starmap)
+
+
+def apply_args_and_kwargs(fn, args, kwargs):
+    """Unpack the args and kwargs."""
+    return fn(*args, **kwargs)
+
+
 def main():
 
     # Parse all the command line arguments.
@@ -825,6 +657,8 @@ def main():
                         help='Width of filter to smooth spectrally.')
     parser.add_argument('-rms', default=None, type=float,
                         help='Estimated uncertainty on each pixel.')
+    parser.add_argument('-processes', default=-1, type=int,
+                        help='Number of process to use for analytical fits.')
     parser.add_argument('-noisechannels', default=5, type=int,
                         help='Number of end channels to use to estimate RMS.')
     parser.add_argument('-mask', default=None,
@@ -866,6 +700,9 @@ def main():
     if not args.silent:
         import warnings
         warnings.filterwarnings("ignore")
+
+    if args.processes == -1:
+        args.processes = multiprocessing.cpu_count()
 
     # Read in the data and the user-defined mask.
     # If nothing is provided, include all pixels.
@@ -1042,26 +879,38 @@ def main():
         tosave['dV'], tosave['ddV'] = dV, ddV
 
     elif args.method == 'gaussian':
-        temp = collapse_gaussian(velax=velax,
-                                 data=masked_data,
-                                 rms=args.rms)
+        print("Using {} CPUs.".format(args.processes))
+        temp = collapse_analytical(velax=velax,
+                                   data=masked_data,
+                                   rms=args.rms,
+                                   model_function='gaussian',
+                                   chunks=args.processes,
+                                   mcmc=None)
         tosave['gv0'], tosave['dgv0'] = temp[:2]
         tosave['gdV'], tosave['dgdV'] = temp[2:4]
         tosave['gFnu'], tosave['dgFnu'] = temp[4:]
 
     elif args.method == 'gaussthick':
-        temp = collapse_gaussthick(velax=velax,
+        print("Using {} CPUs.".format(args.processes))
+        temp = collapse_analytical(velax=velax,
                                    data=masked_data,
-                                   rms=args.rms)
+                                   rms=args.rms,
+                                   model_function='gaussthick',
+                                   chunks=args.processes,
+                                   mcmc=None)
         tosave['gv0'], tosave['dgv0'] = temp[:2]
         tosave['gdV'], tosave['dgdV'] = temp[2:4]
         tosave['gFnu'], tosave['dgFnu'] = temp[4:6]
         tosave['gtau'], tosave['dgtau'] = temp[6:]
 
     elif args.method == 'gausshermite':
-        temp = collapse_gausshermite(velax=velax,
-                                     data=masked_data,
-                                     rms=args.rms)
+        print("Using {} CPUs.".format(args.processes))
+        temp = collapse_analytical(velax=velax,
+                                   data=masked_data,
+                                   rms=args.rms,
+                                   model_function='gausshermite',
+                                   chunks=args.processes,
+                                   mcmc=None)
         tosave['ghv0'], tosave['dghv0'] = temp[:2]
         tosave['ghdV'], tosave['dghdV'] = temp[2:4]
         tosave['ghFnu'], tosave['dghFnu'] = temp[4:6]
