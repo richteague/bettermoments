@@ -8,7 +8,6 @@ TODO:
 
 import argparse
 import numpy as np
-from tqdm import tqdm
 import multiprocessing
 from astropy.io import fits
 import scipy.constants as sc
@@ -258,13 +257,11 @@ def collapse_analytical(velax, data, rms, model_function, indices=None,
     from .profiles import free_params
 
     # Unless provided, fit all spaxels where there are some finite values.
+    # By default, we require each spectrum to have twice as many finite values
+    # as there are free parameters in the model being fit.
 
     if indices is None:
-        finite_spaxels = np.sum(np.isfinite(data), axis=0)
-        finite_spaxels = finite_spaxels > 2.0 * free_params(model_function)
-        finite_spaxels = finite_spaxels.flatten()
-        indices = np.indices(data[0].shape).reshape(2, data[0].size).T
-        indices = indices[finite_spaxels]
+        indices = get_finite_pixels(data, 2.0 * free_params(model_function))
 
     # Split these pixels evenly into chunks to pass off to processes.
 
@@ -432,15 +429,15 @@ def _get_bunits(path):
     return bunits
 
 
-def _get_cube(path):
+def load_cube(path):
     """Return the data and velocity axis from the cube."""
     return _get_data(path), _get_velax(path), _get_bunits(path)
 
 
-def _get_data(path):
+def _get_data(path, fill_value=0.0):
     """Read the FITS cube. Should remove Stokes axis if attached."""
     data = np.squeeze(fits.getdata(path))
-    return np.where(np.isfinite(data), data, 0.0)
+    return np.where(np.isfinite(data), data, fill_value)
 
 
 def _get_velax(path):
@@ -477,7 +474,7 @@ def _read_spectral_axis(header):
     return header['crval3'] + specax * header['cdelt3']
 
 
-def _estimate_RMS(data, N=5):
+def estimate_RMS(data, N=5):
     """Return the estimated RMS in the first and last N channels."""
     x1, x2 = np.percentile(np.arange(data.shape[2]), [25, 75])
     y1, y2 = np.percentile(np.arange(data.shape[1]), [25, 75])
@@ -544,7 +541,7 @@ def _get_pix_per_beam(path):
     return bmaj / abs(fits.getheader(path)['cdelt1'])
 
 
-def _save_array(original_path, new_path, array, overwrite=True, bunit=None):
+def save_to_FITS(original_path, new_path, array, overwrite=True, bunit=None):
     """Use the header from `original_path` to save a new FITS file."""
     header = _write_header(original_path, bunit)
     fits.writeto(new_path, array.astype(float), header, overwrite=overwrite,
@@ -609,14 +606,14 @@ def _save_threshold_mask(data, args):
                  output_verify='silentfix')
 
 
-def _save_velocity_mask(data, args):
-    """Save the user-defined velocity mask for inspection."""
+def _save_channel_mask(data, args):
+    """Save the user-defined channel mask for inspection."""
     header = fits.getheader(args.path, copy=True)
-    header['COMMENT'] = 'user-defined velocity mask'
+    header['COMMENT'] = 'user-defined channel mask'
     header['COMMENT'] = 'made with bettermoments'
     header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
     header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
-    new_path = args.path.replace('.fits', '_velocity_mask.fits')
+    new_path = args.path.replace('.fits', '_channel_mask.fits')
     fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
                  output_verify='silentfix')
 
@@ -642,6 +639,196 @@ def starmap_with_kwargs(pool, fn, args_iter, kwargs_iter):
 def apply_args_and_kwargs(fn, args, kwargs):
     """Unpack the args and kwargs."""
     return fn(*args, **kwargs)
+
+
+def get_finite_pixels(data, min_finite=3):
+    """
+    Returns the (yidx, xidx) tuple for each of the pixels which have at least
+    ``min_finite`` finite samples along the zeroth axis. A good rule of thumb
+    is twice the number of free parameters for the model.
+
+    Args:
+        data (array): The data that will be used for the fitting.
+        min_finite (optional[int]): Minimum number of finite samples along the
+            zeroth axis. Must be positive.
+
+    Returns:
+        indices: A list of (yidx, xidx) tuples of all finite pixels.
+    """
+    assert min_finite > 0, "Must have at least one finite sample to fit."""
+    finite_spaxels = np.sum(data != 0.0, axis=0) > int(min_finite)
+    indices = np.indices(data[0].shape).reshape(2, data[0].size).T
+    return indices[finite_spaxels.flatten()]
+
+
+def smooth_data(data, smooth=0, polyorder=0):
+    """
+    Smooth the input data with a kernel of a width ``smooth``. If ``polyorder``
+    is provided, will smooth with a Savitzky-Golay filter, while if
+    ``polyorder=0``, the default, then only a top-hat kernel will be used. From
+    experimentation, ``smooth=5`` with ``polyorder=3``provides a good result
+    for noisy, but spectrally resolved data.
+
+    ..warning::
+        When smoothing low resolution data, this can substantially alter the
+        line profile, so measurements must be taken with caution.
+
+    Args:
+        data (array): Data to smooth.
+        smooth (optional[int]): The width of the kernel for smooth in number of
+            channels.
+        polyorder (optional[int]): Polynomial order for the Savitzky-Golay
+            filter. This must be smaller than ``smooth``. If not provided, the
+            smoothing will only be a top-hat filter.
+        silent (bool): Whether to print the processes.
+
+    Returns:
+        smoothed_data (array): A smoothed copy of ``data``.
+    """
+    assert data.ndim == 3, "Data must have 3 dimensions to smooth."
+    if smooth > 1:
+        if polyorder > 0:
+            from scipy.signal import savgol_filter
+            smooth += 0 if smooth % 2 else 1
+            smoothed_data = savgol_filter(data, smooth, polyorder=polyorder,
+                                          mode='wrap', axis=0)
+        else:
+            from scipy.ndimage import uniform_filter1d
+            a = uniform_filter1d(data, smooth, mode='wrap', axis=0)
+            b = uniform_filter1d(data[::-1], smooth, mode='wrap', axis=0)[::-1]
+            smoothed_data = np.mean([a, b], axis=0)
+    else:
+        smoothed_data = data.copy()
+    return smoothed_data
+
+
+def get_channel_mask(data, firstchannel=0, lastchannel=-1, user_mask=None):
+    """
+    Returns the channel mask (a mask for the zeroth axis) based on a first and
+    last channel. A ``chan_mask`` can also be provided for more complex masks,
+    however be warned that the ``firstchannel`` and ``lastchannel`` will always
+    take precedence over ``chan_mask``.
+
+    Args:
+        data (array): The data array to use for masking.
+        firstchanenl (optional[int]): The first channel to include. Defaults to
+            the first channel.
+        lastchannel (optional[int]): The last channel to include. Defaults to
+            the last channel. This can be both a positive value, or a negative
+            value following the normal indexing conventions, i.e. ``-1``
+            describes the last channel.
+        user_mask (optional[array]): A 1D array with size ``data.shape[0]``
+            detailing which channels to include in the moment map creation.
+
+    Returns:
+        channel_mask (array): A mask array the same shape as ``data``.
+    """
+    channels = np.arange(data.shape[0])
+    channel_mask = np.ones(data.shape[0]) if user_mask is None else user_mask
+    assert channel_mask.shape == channels.shape
+    lastchannel = channels[lastchannel] if lastchannel < 0 else lastchannel
+    assert 0 <= firstchannel < lastchannel <= data.shape[0]
+    channel_mask = np.where(channels >= firstchannel, channel_mask, 0)
+    channel_mask = np.where(channels <= lastchannel, channel_mask, 0)
+    return np.where(channel_mask[:, None, None], np.ones(data.shape), 0.0)
+
+
+def get_user_mask(data, user_mask_path=None):
+    """
+    Returns a mask based on a user-provided file. All positive values are
+    included in the mask.
+
+    Args:
+        data (array): The data array to mask.
+        user_mask_path (optional[str]): Path to the FITS cube containing the
+            user-defined mask.
+
+    Returns:
+        user_mask (array): A mask array the same shape as ``data``.
+    """
+    if user_mask_path is None:
+        user_mask = np.ones(data.shape)
+    else:
+        user_mask = np.where(_get_data(user_mask_path) > 0, 1.0, 0.0)
+    assert user_mask.shape == data.shape
+    return user_mask.astype('float')
+
+
+def get_threshold_mask(data, clip=None, smooth_threshold_mask=0,
+                       noise_channels=5):
+    """
+    Returns a mask based on a sigma-clip to the input data. The most standard
+    approach would be to use ``clip=3`` to mask out all pixels with intensities
+    :math:`|I| \leq 3\sigma`. If you wanted to specify an asymmetric criteria
+    then you can provide a tuple, ``clip=(-2, 3)`` which would mask out all
+    pixels where :math:`-2\sigma \leq I \leq 3\sigma`.
+
+    [Some discussion on the smooth_threshold_mask coming...]
+
+    Args:
+        data (array): The data array to mask.
+        clip (optional[float/tuple]): The sigma clip to apply. If a single
+            value is provided, this is taken to be a symmetric mask. If a tuple
+            if provided, this is taking as a minimum and maximum clip value.
+        smooth_threshold_mask (optional[float]): Convolution kernel FWHM in
+            pixels.
+        noise_channels (optional[int]): Number of channels at the start and end
+            of the velocity axis to use for estimating the noise.
+
+    Returns:
+        threshold_mask (array): A mask array the same shape as ``data``.
+    """
+
+    # No clipping required.
+
+    if clip is None:
+        return np.ones(data.shape)
+
+    # Define the clippng range.
+
+    clip = np.atleast_1d(clip)
+    clip = np.array([-clip[0], clip[0]]) if clip.size == 1 else clip
+    assert np.all(clip != 0.0), "Use `clip=None` to not use a threshold mask."
+
+    # If we are making a Frankenmask, we must first smooth the cube to both
+    # lower the background noise and extend the range of the real emission.
+    # After the smoothing, we devide through by the RMS to generate a SNR mask.
+
+    assert smooth_threshold_mask >= 0.0
+    if smooth_threshold_mask > 0.0:
+        from scipy.ndimage import gaussian_filter
+        SNR = [gaussian_filter(c, sigma=smooth_threshold_mask) for c in data]
+        SNR = np.array(SNR)
+    else:
+        SNR = data.copy()
+    SNR /= estimate_RMS(SNR, noise_channels)
+
+    # Return the mask.
+
+    return np.logical_or(SNR < clip[0], SNR > clip[-1]).astype('float')
+
+
+def get_combined_mask(user_mask, threshold_mask, channel_mask, combine='and'):
+    """
+    Return the combined user, threshold and channel masks, ``user_mask``,
+    ``threshold_mask`` and ``velo_mask``, respectively. The user and threshold
+    masks can be combined either through ``AND`` or ``OR``, which is controlled
+    through the ``combine`` argument. This defaults to ``AND``, such that all
+    mask requirements are met.
+
+    Args:
+        user_mask (array): User-defined mask from ``get_user_mask``.
+        threshold_mask (array): Threshold mask from ``get_threshold_mask``.
+        channel_mask (array): Channel mask from ``get_channel_mask``.
+
+    Returns:
+        combined_mask (array): A combined mask.
+
+    """
+    assert combine in ['and', 'or'], "Unknown `combine`: {}.".format(combine)
+    combine = np.logical_and if combine == 'and' else np.logical_or
+    combined_mask = combine(combine(user_mask, threshold_mask), channel_mask)
+    return combined_mask.astype('float')
 
 
 def main():
@@ -709,104 +896,76 @@ def main():
 
     if not args.silent:
         print("Loading up data...")
-    data, velax, bunits = _get_cube(args.path)
+    data, velax, bunits = load_cube(args.path)
 
-    if args.mask is None:
-        user_mask = np.ones(data.shape)
-    else:
-        user_mask = _get_data(args.mask)
-        user_mask = user_mask.astype('float')
+    # Load up the user-defined mask.
+
+    if not args.silent:
+        print("Loading up user-defined mask...")
+    user_mask = get_user_mask(data=data, user_mask_path=args.mask)
     if args.debug:
         _save_user_mask(user_mask, args)
 
     # Define the velocity mask based on first and last channels. If nothing is
-    # provided, use all channels.
+    # provided, use all channels. A more extensive version is possible for the
+    # non-command line version.
 
-    if args.lastchannel == -1:
-        args.lastchannel = data.shape[0]
-    velo_mask = np.ones(data.shape)
-    velo_mask[args.lastchannel:] = 0.0
-    velo_mask[:args.firstchannel] = 0.0
+    if not args.silent:
+        print("Defining channel-based mask...")
+    channel_mask = get_channel_mask(data=data,
+                                    firstchannel=args.firstchannel,
+                                    lastchannel=args.lastchannel)
     if args.debug:
-        _save_velocity_mask(velo_mask, args)
+        _save_channel_mask(channel_mask, args)
 
     # Smooth the data in the spectral dimension. Uses by default a uniform
     # (boxcar) filter. If a `polyorder` is provided, assumes the user wants a
     # Savitzky-Golay filter. In this case, extend all even window sizes by one
     # to make sure it is an odd number.
 
-    if args.smooth > 1:
-        if not args.silent:
-            _text = "Smoothing data along spectral axis"
-            _text += " (this will reduce the RMS of the cube)..."
-            print(_text)
-        if args.polyorder > 0:
-            from scipy.signal import savgol_filter
-            if not args.smooth % 2:
-                args.smooth += 1
-                if not args.silent:
-                    _text = "Must have an odd window size for savgol_filter. "
-                    _text += "Will increase `smooth` by 1 "
-                    _text += "to {:d}.".format(args.smooth)
-                    print(_text)
-            data = savgol_filter(data, args.smooth, polyorder=args.polyorder,
-                                 mode='wrap', axis=0)
-        else:
-            from scipy.ndimage import uniform_filter1d
-            data = uniform_filter1d(data, args.smooth,
-                                    mode='wrap', axis=0)
-        if args.debug:
-            _save_smoothed_data(data, args)
+    if not args.silent:
+        print("Smoothing the data...")
+    data = smooth_data(data=data,
+                       smooth=args.smooth,
+                       polyorder=args.polyorder)
+    if args.debug:
+        _save_smoothed_data(data, args)
 
     # Calculate the RMS based on the first and last `noisechannels`, which is 5
     # by default. TODO: Test if there's a better way of doing this...
 
+    if not args.silent:
+        print("Estimating noise in the data...")
     if args.rms is None:
-        args.rms = _estimate_RMS(data, args.noisechannels)
+        args.rms = estimate_RMS(data, args.noisechannels)
         if not args.silent:
             print("Estimated RMS: {:.2e}.".format(args.rms))
 
-    # Define the threshold mask.
+    # Define the threshold mask. This includes the spatial smoothing of the
+    # data for create Frankenmasks.
 
-    if args.clip is not None:
-        if len(args.clip) == 1:
-            args.clip = [-args.clip[0], args.clip[0]]
-        if args.smooththreshold > 0.0:
-            from scipy.ndimage import gaussian_filter
-            if not args.silent:
-                print("Smoothing threshold map. May take a while...")
-            sig = args.smooththreshold * _get_pix_per_beam(args.path) / 2.35
-            noise = []
-            with tqdm(total=data.shape[0]) as pbar:
-                for c in data.copy():
-                    noise += [gaussian_filter(c, sigma=sig)]
-                    pbar.update(1)
-            noise = np.squeeze(noise)
-            if args.rms is not None and not args.silent:
-                print("WARNING: Convolving  mask will reduce the RMS.")
-                print("\t Provided `rms` may over-estimate the true RMS.")
-            if noise.shape != data.shape:
-                raise ValueError("Incorrect smoothing of threshold mask.")
-        else:
-            noise = data.copy()
-
-        threshold_mask = np.logical_or(noise / args.rms < args.clip[0],
-                                       noise / args.rms > args.clip[-1])
-        threshold_mask = threshold_mask.astype('float')
-    else:
-        threshold_mask = np.ones(data.shape)
+    if not args.silent:
+        print("Calculating threshold-based mask...")
+    threshold_mask = get_threshold_mask(data=data,
+                                        clip=args.clip,
+                                        smooth_threshold_mask=args.smooththreshold,
+                                        noise_channels=args.noisechannels)
     if args.debug:
         _save_threshold_mask(threshold_mask, args)
 
     # Combine the masks and apply to the data.
 
-    args.combine = np.logical_and if args.combine == 'and' else np.logical_or
-    combined_mask = args.combine(user_mask, threshold_mask) * velo_mask
-    masked_data = np.where(combined_mask, data, 0.0)
+    if not args.silent:
+        print("Masking the data...")
+    combined_mask = get_combined_mask(user_mask=user_mask,
+                                      threshold_mask=threshold_mask,
+                                      channel_mask=channel_mask,
+                                      combine=args.combine)
     if args.returnmask or args.debug:
         _save_mask(combined_mask, args)
     if args.debug:
         _save_channel_count(np.sum(combined_mask, axis=0), args)
+    masked_data = data.copy() * combined_mask
 
     # Reverse the direction if the velocity axis is decreasing.
 
@@ -865,7 +1024,7 @@ def main():
         tosave['v0'], tosave['dv0'] = temp[:2]
         tosave['Fnu'], tosave['dFnu'] = temp[2:]
         if args.clip is not None:
-            temp = tosave['Fnu'] / tosave['dFnu'] >= args.clip[1]
+            temp = tosave['Fnu'] / tosave['dFnu'] >= max(args.clip)
             temp = np.where(temp, 1.0, np.nan)
             tosave['v0'] = tosave['v0'] * temp
             tosave['dv0'] = tosave['dv0'] * temp
@@ -930,8 +1089,8 @@ def main():
         else:
             outname = args.outname.replace('.fits', '')
             outname += '_{}.fits'.format(map_name)
-        _save_array(args.path, outname, tosave[map_name],
-                    overwrite=args.nooverwrite, bunit=bunits[map_name])
+        save_to_FITS(args.path, outname, tosave[map_name],
+                     overwrite=args.nooverwrite, bunit=bunits[map_name])
 
 
 if __name__ == '__main__':

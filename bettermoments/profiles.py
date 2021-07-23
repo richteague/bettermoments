@@ -93,7 +93,7 @@ def gaussthick(x, *params):
     Gaussian profile with non-negligible optical depth,
 
     .. math::
-        I(v) = I_{\nu} \big(1 - \exp(\mathcal{G}(v, v0, \Delta V, \tau))\big)
+        I(v) = I_{\nu} \big(1 - \exp(\mathcal{G}(v, v0, \Delta V, \tau))\big) \, / \, (1 - \exp(-\tau))
 
     where :math:`\mathcal{G}` is a Gaussian function.
 
@@ -108,7 +108,7 @@ def gaussthick(x, *params):
     assert len(params) == free_params('gaussthick')
     tau = gaussian(x, params[0], params[1], params[3])
     model = params[2] * (1.0 - np.exp(-tau))
-    return model
+    return model / (1.0 - np.exp(-params[3]))
 
 
 def gaussthick_cont(x, *params):

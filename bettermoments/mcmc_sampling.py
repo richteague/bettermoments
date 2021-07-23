@@ -3,6 +3,7 @@ Functions to apply the fitting in an MCMC manner.
 """
 
 import numpy as np
+from tqdm import tqdm
 from .profiles import free_params
 
 
@@ -89,12 +90,14 @@ def fit_cube(velax, data, rms, model_function, indices=None, **kwargs):
     # Cycle through the pixels and apply the fitting.
 
     fits = np.ones((indices.shape[0], 2, nparams)) * np.nan
-    for i, idx in enumerate(indices):
-        y = data[:, idx[0], idx[1]].copy()
-        mask = np.logical_and(np.isfinite(y), y != 0.0)
-        if len(y[mask]) > nparams * 2:
-            fits[i] = fit_spectrum(x[mask], y[mask], dy[mask],
-                                   model_function, **kwargs)
+    with tqdm(total=indices.shape[0]) as pbar:
+        for i, idx in enumerate(indices):
+            y = data[:, idx[0], idx[1]].copy()
+            mask = np.logical_and(np.isfinite(y), y != 0.0)
+            if len(y[mask]) > nparams * 2:
+                fits[i] = fit_spectrum(x[mask], y[mask], dy[mask],
+                                       model_function, **kwargs)
+            pbar.update(1)
     return np.swapaxes(fits, 1, 2)
 
 
@@ -198,7 +201,7 @@ def run_sampler(x, y, dy, p0, priors, model_function, nwalkers=None,
 
     nwalkers = len(p0) * 2 if nwalkers is None else nwalkers
     p0 = random_p0(p0, scatter, nwalkers)
-    progress = kwargs.pop('progress', True)
+    progress = kwargs.pop('progress', False)
     moves = kwargs.pop('moves', None)
     pool = kwargs.pop('pool', None)
     args = [x, y, dy, priors, import_function(model_function)]
