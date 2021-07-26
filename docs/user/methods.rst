@@ -1,5 +1,5 @@
-.. module:: bettermoments.collapse_cube
-.. collapse_cube
+.. module:: bettermoments.methods
+.. methods
 
 API
 ===
@@ -24,32 +24,32 @@ Moment Maps
 Implementation of traditional moment-map methods. See the `CASA documentation
 <https://casa.nrao.edu/docs/CasaRef/image.moments.html>`_ for more information.
 
-.. autofunction:: bettermoments.collapse_cube.collapse_zeroth
+.. autofunction:: bettermoments.methods.collapse_zeroth
 
-.. autofunction:: bettermoments.collapse_cube.collapse_first
+.. autofunction:: bettermoments.methods.collapse_first
 
-.. autofunction:: bettermoments.collapse_cube.collapse_second
+.. autofunction:: bettermoments.methods.collapse_second
 
-.. autofunction:: bettermoments.collapse_cube.collapse_eighth
+.. autofunction:: bettermoments.methods.collapse_eighth
 
-.. autofunction:: bettermoments.collapse_cube.collapse_ninth
+.. autofunction:: bettermoments.methods.collapse_ninth
 
-.. autofunction:: bettermoments.collapse_cube.collapse_maximum
+.. autofunction:: bettermoments.methods.collapse_maximum
 
 
 Non-Traditional Methods
 -----------------------
 
-.. autofunction:: bettermoments.collapse_cube.collapse_quadratic
+.. autofunction:: bettermoments.methods.collapse_quadratic
 
-.. autofunction:: bettermoments.collapse_cube.collapse_width
+.. autofunction:: bettermoments.methods.collapse_width
 
 
 (Higher Order) Gaussian Fits
 ----------------------------
 
-.. autofunction:: bettermoments.collapse_cube.collapse_gaussian
+.. autofunction:: bettermoments.methods.collapse_gaussian
 
-.. autofunction:: bettermoments.collapse_cube.collapse_gaussthick
+.. autofunction:: bettermoments.methods.collapse_gaussthick
 
-.. autofunction:: bettermoments.collapse_cube.collapse_gausshermite
+.. autofunction:: bettermoments.methods.collapse_gausshermite

@@ -35,7 +35,7 @@ and you're done!
    :maxdepth: 2
    :caption: Contents
 
-   user/collapse_cube
+   user/methods
    user/command_line
    user/faq
    user/citations
