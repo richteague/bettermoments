@@ -18,7 +18,7 @@ sys.path.append(os.path.join(os.path.dirname(__name__), '..'))
 # -- Project information -----------------------------------------------------
 
 project = 'bettermoments'
-copyright = '2020, Richard Teague'
+copyright = '2020, 2021, Richard Teague'
 author = 'Richard Teague'
 
 # -- General configuration ---------------------------------------------------
@@ -31,7 +31,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'sphinx.ext.imgmath',
-    # 'nbsphinx',
+    'nbsphinx',
 ]
 
 # Is this really necessary...

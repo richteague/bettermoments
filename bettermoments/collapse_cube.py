@@ -9,95 +9,8 @@ TODO:
 import argparse
 import numpy as np
 import multiprocessing
-from astropy.io import fits
-import scipy.constants as sc
 
-
-def _get_bunits(path):
-    """Return the dictionary of units."""
-    bunits = {}
-    flux_unit = fits.getheader(path)['bunit']
-    bunits['M0'] = '{} m/s'.format(flux_unit)
-    bunits['dM0'] = '{} m/s'.format(flux_unit)
-    bunits['M1'] = 'm/s'
-    bunits['dM1'] = 'm/s'
-    bunits['M2'] = 'm/s'
-    bunits['dM2'] = 'm/s'
-    bunits['M8'] = '{}'.format(flux_unit)
-    bunits['dM8'] = '{}'.format(flux_unit)
-    bunits['M9'] = 'm/s'
-    bunits['dM9'] = 'm/s'
-    bunits['v0'] = 'm/s'
-    bunits['dv0'] = 'm/s'
-    bunits['Fnu'] = '{}'.format(flux_unit)
-    bunits['dFnu'] = '{}'.format(flux_unit)
-    bunits['dV'] = 'm/s'
-    bunits['ddV'] = 'm/s'
-    bunits['gv0'] = bunits['v0']
-    bunits['gFnu'] = bunits['Fnu']
-    bunits['gdV'] = bunits['dV']
-    bunits['gtau'] = ''
-    bunits['dgv0'] = bunits['gv0']
-    bunits['dgFnu'] = bunits['gFnu']
-    bunits['dgdV'] = bunits['gdV']
-    bunits['dgtau'] = ''
-    bunits['ghv0'] = bunits['v0']
-    bunits['ghFnu'] = bunits['Fnu']
-    bunits['ghdV'] = bunits['dV']
-    bunits['ghh3'] = ''
-    bunits['ghh4'] = ''
-    bunits['dghv0'] = bunits['gv0']
-    bunits['dghFnu'] = bunits['gFnu']
-    bunits['dghdV'] = bunits['gdV']
-    bunits['dghh3'] = bunits['ghh3']
-    bunits['dghh4'] = bunits['ghh4']
-    bunits['mask'] = 'bool'
-    return bunits
-
-
-def load_cube(path):
-    """Return the data and velocity axis from the cube."""
-    return _get_data(path), _get_velax(path), _get_bunits(path)
-
-
-def _get_data(path, fill_value=0.0):
-    """Read the FITS cube. Should remove Stokes axis if attached."""
-    data = np.squeeze(fits.getdata(path))
-    return np.where(np.isfinite(data), data, fill_value)
-
-
-def _get_velax(path):
-    """Read the velocity axis information."""
-    return _read_velocity_axis(fits.getheader(path))
-
-
-def _read_rest_frequency(header):
-    """Read the rest frequency in [Hz]."""
-    try:
-        nu = header['restfreq']
-    except KeyError:
-        try:
-            nu = header['restfrq']
-        except KeyError:
-            nu = header['crval3']
-    return nu
-
-
-def _read_velocity_axis(header):
-    """Wrapper for _velocityaxis and _spectralaxis."""
-    if 'freq' in header['ctype3'].lower():
-        specax = _read_spectral_axis(header)
-        nu = _read_rest_frequency(header)
-        velax = (nu - specax) * sc.c / nu
-    else:
-        velax = _read_spectral_axis(header)
-    return velax
-
-
-def _read_spectral_axis(header):
-    """Returns the spectral axis in [Hz] or [m/s]."""
-    specax = (np.arange(header['naxis3']) - header['crpix3'] + 1.0)
-    return header['crval3'] + specax * header['cdelt3']
+# -- DATA MANIPULATION -- #
 
 
 def estimate_RMS(data, N=5):
@@ -107,153 +20,6 @@ def estimate_RMS(data, N=5):
     x1, x2, y1, y2, N = int(x1), int(x2), int(y1), int(y2), int(N)
     rms = np.nanstd([data[:N, y1:y2, x1:x2], data[-N:, y1:y2, x1:x2]])
     return rms
-
-
-def _write_header(path, bunit):
-    """Write a new header for the saved file."""
-    header = fits.getheader(path, copy=True)
-    new_header = fits.PrimaryHDU().header
-    new_header['SIMPLE'] = True
-    new_header['BITPIX'] = -64
-    new_header['NAXIS'] = 2
-    beam = _collapse_beamtable(path)
-    new_header['BMAJ'] = beam[0]
-    new_header['BMIN'] = beam[1]
-    new_header['BPA'] = beam[2]
-    if bunit is not None:
-        new_header['BUNIT'] = bunit
-    else:
-        new_header['BUNIT'] = header['BUNIT']
-    for i in [1, 2]:
-        for val in ['NAXIS', 'CTYPE', 'CRVAL', 'CDELT', 'CRPIX', 'CUNIT']:
-            key = '%s%d' % (val, i)
-            if key in header.keys():
-                new_header[key] = header[key]
-    try:
-        new_header['RESTFRQ'] = header['RESTFRQ']
-    except KeyError:
-        try:
-            new_header['RESTFREQ'] = header['RESTFREQ']
-        except KeyError:
-            new_header['RESTFREQ'] = 0.0
-    try:
-        new_header['SPECSYS'] = header['SPECSYS']
-    except KeyError:
-        pass
-    new_header['COMMENT'] = 'made with bettermoments'
-    return new_header
-
-
-def _collapse_beamtable(path):
-    """Returns the median beam from the CASA beam table if present."""
-    header = fits.getheader(path)
-    if header.get('CASAMBM', False):
-        try:
-            beam = fits.open(path)[1].data
-            beam = np.max([b[:3] for b in beam.view()], axis=0)
-            return beam[0] / 3600., beam[1] / 3600., beam[2]
-        except IndexError:
-            print('WARNING: No beam table found despite CASAMBM flag.')
-            return abs(header['cdelt1']), abs(header['cdelt2']), 0.0
-    try:
-        return header['bmaj'], header['bmin'], header['bpa']
-    except KeyError:
-        return abs(header['cdelt1']), abs(header['cdelt2']), 0.0
-
-
-def _get_pix_per_beam(path):
-    """Returns the number of pixels per beam FWHM."""
-    bmaj, _, _ = _collapse_beamtable(path)
-    return bmaj / abs(fits.getheader(path)['cdelt1'])
-
-
-def save_to_FITS(original_path, new_path, array, overwrite=True, bunit=None):
-    """Use the header from `original_path` to save a new FITS file."""
-    header = _write_header(original_path, bunit)
-    fits.writeto(new_path, array.astype(float), header, overwrite=overwrite,
-                 output_verify='silentfix')
-
-
-def _save_smoothed_data(data, args):
-    """Save the smoothed data for inspection."""
-    header = fits.getheader(args.path, copy=True)
-    header['COMMENT'] = 'smoothed data used for moment map creation'
-    header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = '-smooth {}'.format(args.smooth)
-    header['COMMENT'] = '-polyorder {}'.format(args.polyorder)
-    new_path = args.path.replace('.fits', '_smoothed_data.fits')
-    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
-                 output_verify='silentfix')
-
-
-def _save_mask(data, args):
-    """Save the combined mask for inspection."""
-    header = fits.getheader(args.path, copy=True)
-    header['COMMENT'] = 'mask used for moment map creation'
-    header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
-    header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
-    header['COMMENT'] = '-mask {}'.format(args.mask)
-    header['COMMENT'] = '-clip {}'.format(args.clip)
-    header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
-    header['COMMENT'] = '-combine {}'.format(args.combine)
-    new_path = args.path.replace('.fits', '_mask.fits')
-    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
-                 output_verify='silentfix')
-
-
-def _save_channel_count(data, args):
-    """Save the number of channels used in each pixel."""
-    header = fits.getheader(args.path, copy=True)
-    header['BUNIT'] = 'channels'
-    header['COMMENT'] = 'number of channels used in each pixel'
-    header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
-    header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
-    header['COMMENT'] = '-mask {}'.format(args.mask)
-    header['COMMENT'] = '-clip {}'.format(args.clip)
-    header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
-    header['COMMENT'] = '-combine {}'.format(args.combine)
-    new_path = args.path.replace('.fits', '_channel_count.fits')
-    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
-                 output_verify='silentfix')
-
-
-def _save_threshold_mask(data, args):
-    """Save the smoothed data for inspection."""
-    header = fits.getheader(args.path, copy=True)
-    header['COMMENT'] = 'user-defined threshold mask'
-    header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = '-clip {}'.format(args.clip)
-    header['COMMENT'] = '-smooththreshold {}'.format(args.smooththreshold)
-    header['COMMENT'] = '-combine {}'.format(args.combine)
-    new_path = args.path.replace('.fits', '_threshold_mask.fits')
-    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
-                 output_verify='silentfix')
-
-
-def _save_channel_mask(data, args):
-    """Save the user-defined channel mask for inspection."""
-    header = fits.getheader(args.path, copy=True)
-    header['COMMENT'] = 'user-defined channel mask'
-    header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = '-lastchannel {}'.format(args.lastchannel)
-    header['COMMENT'] = '-firstchannel {}'.format(args.firstchannel)
-    new_path = args.path.replace('.fits', '_channel_mask.fits')
-    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
-                 output_verify='silentfix')
-
-
-def _save_user_mask(data, args):
-    """Save the user-defined velocity mask for inspection."""
-    header = fits.getheader(args.path, copy=True)
-    header['COMMENT'] = 'user-defined mask'
-    header['COMMENT'] = 'made with bettermoments'
-    header['COMMENT'] = '-mask {}'.format(args.mask)
-    header['COMMENT'] = '-combine {}'.format(args.combine)
-    new_path = args.path.replace('.fits', '_user_mask.fits')
-    fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
-                 output_verify='silentfix')
 
 
 def smooth_data(data, smooth=0, polyorder=0):
@@ -344,6 +110,7 @@ def get_user_mask(data, user_mask_path=None):
     if user_mask_path is None:
         user_mask = np.ones(data.shape)
     else:
+        from .io import _get_data
         user_mask = np.where(_get_data(user_mask_path) > 0, 1.0, 0.0)
     assert user_mask.shape == data.shape
     return user_mask.astype('float')
@@ -426,6 +193,9 @@ def get_combined_mask(user_mask, threshold_mask, channel_mask, combine='and'):
     return combined_mask.astype('float')
 
 
+# -- COMAND LINE INTERFACE -- #
+
+
 def main():
 
     # Parse all the command line arguments.
@@ -491,7 +261,8 @@ def main():
 
     if not args.silent:
         print("Loading up data...")
-    data, velax, bunits = load_cube(args.path)
+    from .io import load_cube
+    data, velax = load_cube(args.path)
 
     # Load up the user-defined mask.
 
@@ -499,6 +270,7 @@ def main():
         print("Loading up user-defined mask...")
     user_mask = get_user_mask(data=data, user_mask_path=args.mask)
     if args.debug:
+        from .io import _save_user_mask
         _save_user_mask(user_mask, args)
 
     # Define the velocity mask based on first and last channels. If nothing is
@@ -511,6 +283,7 @@ def main():
                                     firstchannel=args.firstchannel,
                                     lastchannel=args.lastchannel)
     if args.debug:
+        from .io import _save_channel_mask
         _save_channel_mask(channel_mask, args)
 
     # Smooth the data in the spectral dimension. Uses by default a uniform
@@ -524,6 +297,7 @@ def main():
                        smooth=args.smooth,
                        polyorder=args.polyorder)
     if args.debug:
+        from .io import _save_smoothed_data
         _save_smoothed_data(data, args)
 
     # Calculate the RMS based on the first and last `noisechannels`, which is 5
@@ -546,6 +320,7 @@ def main():
                                         smooth_threshold_mask=args.smooththreshold,
                                         noise_channels=args.noisechannels)
     if args.debug:
+        from .io import _save_threshold_mask
         _save_threshold_mask(threshold_mask, args)
 
     # Combine the masks and apply to the data.
@@ -557,8 +332,10 @@ def main():
                                       channel_mask=channel_mask,
                                       combine=args.combine)
     if args.returnmask or args.debug:
+        from .io import _save_mask
         _save_mask(combined_mask, args)
     if args.debug:
+        from .io import _save_channel_count
         _save_channel_count(np.sum(combined_mask, axis=0), args)
     masked_data = data.copy() * combined_mask
 
@@ -573,111 +350,84 @@ def main():
     if not args.silent:
         print("Calculating maps...")
 
-    tosave = {}
-
     if args.method == 'zeroth':
         from .methods import collapse_zeroth
-        M0, dM0 = collapse_zeroth(velax=velax,
+        moments = collapse_zeroth(velax=velax,
                                   data=masked_data,
                                   rms=args.rms)
-        tosave['M0'], tosave['dM0'] = M0, dM0
 
     elif args.method == 'first':
         from .methods import collapse_first
-        M1, dM1 = collapse_first(velax=velax,
+        moments = collapse_first(velax=velax,
                                  data=masked_data,
                                  rms=args.rms)
-        tosave['M1'], tosave['dM1'] = M1, dM1
 
     elif args.method == 'second':
         from .methods import collapse_second
-        M2, dM2 = collapse_second(velax=velax,
+        moments = collapse_second(velax=velax,
                                   data=masked_data,
                                   rms=args.rms)
-        tosave['M2'], tosave['dM2'] = M2, dM2
 
     elif args.method == 'eighth':
         from .methods import collapse_eighth
-        M8, dM8 = collapse_eighth(velax=velax,
+        moments = collapse_eighth(velax=velax,
                                   data=masked_data,
                                   rms=args.rms)
-        tosave['M8'], tosave['dM8'] = M8, dM8
 
     elif args.method == 'ninth':
         from .methods import collapse_ninth
-        M9, dM9 = collapse_ninth(velax=velax,
+        moments = collapse_ninth(velax=velax,
                                  data=masked_data,
                                  rms=args.rms)
-        tosave['M9'], tosave['dM9'] = M9, dM9
 
     elif args.method == 'maximum':
         from .methods import collapse_maximum
-        temp = collapse_maximum(velax=velax,
-                                data=masked_data,
-                                rms=args.rms)
-        tosave['M8'], tosave['dM8'] = temp[:2]
-        tosave['M9'], tosave['dM9'] = temp[2:]
+        moments = collapse_maximum(velax=velax,
+                                   data=masked_data,
+                                   rms=args.rms)
 
     elif args.method == 'quadratic':
         from .methods import collapse_quadratic
-        temp = collapse_quadratic(velax=velax,
-                                  data=masked_data,
-                                  rms=args.rms)
-        tosave['v0'], tosave['dv0'] = temp[:2]
-        tosave['Fnu'], tosave['dFnu'] = temp[2:]
+        moments = collapse_quadratic(velax=velax,
+                                     data=masked_data,
+                                     rms=args.rms)
         if args.clip is not None:
-            temp = tosave['Fnu'] / tosave['dFnu'] >= max(args.clip)
-            temp = np.where(temp, 1.0, np.nan)
-            tosave['v0'] = tosave['v0'] * temp
-            tosave['dv0'] = tosave['dv0'] * temp
-            tosave['Fnu'] = tosave['Fnu'] * temp
-            tosave['dFnu'] = tosave['dFnu'] * temp
+            temp = moments[2] / moments[3] >= max(args.clip)
+            moments *= np.where(temp, 1.0, np.nan)[None, :, :]
 
     elif args.method == 'width':
         from .methods import collapse_width
-        dV, ddV = collapse_width(velax=velax,
+        moments = collapse_width(velax=velax,
                                  data=masked_data,
-                                 ms=args.rms)
-        tosave['dV'], tosave['ddV'] = dV, ddV
+                                 rms=args.rms)
 
     elif args.method == 'gaussian':
         from .methods import collapse_gaussian
         print("Using {} CPUs.".format(args.processes))
-        temp = collapse_gaussian(velax=velax,
-                                 data=masked_data,
-                                 rms=args.rms,
-                                 chunks=args.processes,
-                                 mcmc=None)
-        tosave['gv0'], tosave['dgv0'] = temp[:2]
-        tosave['gdV'], tosave['dgdV'] = temp[2:4]
-        tosave['gFnu'], tosave['dgFnu'] = temp[4:]
+        moments = collapse_gaussian(velax=velax,
+                                    data=masked_data,
+                                    rms=args.rms,
+                                    chunks=args.processes,
+                                    mcmc=None)
 
     elif args.method == 'gaussthick':
         from .methods import collapse_gaussthick
         print("Using {} CPUs.".format(args.processes))
-        temp = collapse_gaussthick(velax=velax,
-                                   data=masked_data,
-                                   rms=args.rms,
-                                   chunks=args.processes,
-                                   mcmc=None)
-        tosave['gv0'], tosave['dgv0'] = temp[:2]
-        tosave['gdV'], tosave['dgdV'] = temp[2:4]
-        tosave['gFnu'], tosave['dgFnu'] = temp[4:6]
-        tosave['gtau'], tosave['dgtau'] = temp[6:]
+        moments = collapse_gaussthick(velax=velax,
+                                      data=masked_data,
+                                      rms=args.rms,
+                                      chunks=args.processes,
+                                      mcmc=None)
 
     elif args.method == 'gausshermite':
         from .methods import collapse_gausshermite
         print("Using {} CPUs.".format(args.processes))
-        temp = collapse_gausshermite(velax=velax,
-                                     data=masked_data,
-                                     rms=args.rms,
-                                     chunks=args.processes,
-                                     mcmc=None)
-        tosave['ghv0'], tosave['dghv0'] = temp[:2]
-        tosave['ghdV'], tosave['dghdV'] = temp[2:4]
-        tosave['ghFnu'], tosave['dghFnu'] = temp[4:6]
-        tosave['ghh3'], tosave['dghh3'] = temp[6:8]
-        tosave['ghh4'], tosave['dghh4'] = temp[8:]
+        moments = collapse_gausshermite(velax=velax,
+                                        data=masked_data,
+                                        rms=args.rms,
+                                        chunks=args.processes,
+                                        mcmc=None)
+
     else:
         raise ValueError("Unknown method.")
 
@@ -685,15 +435,11 @@ def main():
 
     if not args.silent:
         print("Saving maps...")
-
-    for map_name in tosave.keys():
-        if args.outname is None:
-            outname = args.path.replace('.fits', '_{}.fits'.format(map_name))
-        else:
-            outname = args.outname.replace('.fits', '')
-            outname += '_{}.fits'.format(map_name)
-        save_to_FITS(args.path, outname, tosave[map_name],
-                     overwrite=args.nooverwrite, bunit=bunits[map_name])
+    from .io import save_to_FITS
+    save_to_FITS(moments=moments,
+                 method=args.method,
+                 path=args.path,
+                 overwrite=args.nooverwrite)
 
 
 if __name__ == '__main__':

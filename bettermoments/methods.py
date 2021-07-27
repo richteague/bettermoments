@@ -384,7 +384,7 @@ def collapse_quadratic(velax, data, rms):
     """
     from bettermoments.quadratic import quadratic
     chan = np.diff(velax).mean()
-    return quadratic(data, x0=velax[0], dx=chan, uncertainty=rms)
+    return np.squeeze(quadratic(data, x0=velax[0], dx=chan, uncertainty=rms))
 
 
 def collapse_maximum(velax, data, rms):
@@ -495,7 +495,7 @@ def collapse_method_products(method):
     returns['gausshermite'] = 'ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu '
     returns['gausshermite'] += 'ghh3, dghh3, ghh4, dghh4'
     try:
-        print(returns[method])
+        return returns[method]
     except KeyError:
         print('`{}` not found.'.format(method))
         available_collapse_methods()
