@@ -26,7 +26,6 @@ setuptools.setup(
         "tqdm",
         "emcee>=3",
         "zeus-mcmc",
-        "nbsphinx",
         ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
