@@ -95,7 +95,8 @@ def gaussthick(x, *params):
     .. math::
         I(v) = I_{\nu} \big(1 - \exp(\mathcal{G}(v, v0, \Delta V, \tau))\big) \, / \, (1 - \exp(-\tau))
 
-    where :math:`\mathcal{G}` is a Gaussian function.
+    where :math:`\mathcal{G}` is a Gaussian function. Note that :math:`\tau` is
+    forced to be non-negative, but negative values will be clipped to 0.
 
     Args:
         x (arr): Velocity axis in [m/s].
@@ -107,7 +108,7 @@ def gaussthick(x, *params):
     """
     assert len(params) == free_params('gaussthick')
     tau = gaussian(x, params[0], params[1], params[3])
-    model = params[2] * (1.0 - np.exp(-tau))
+    model = params[2] * (1.0 - np.exp(-np.clip(tau, amin=0.0, amax=None))
     return model / (1.0 - np.exp(-params[3]))
 
 

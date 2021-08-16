@@ -210,7 +210,7 @@ def collapse_ninth(velax, data, rms):
             uncertainty, ``dM9``.
     """
     M9 = velax[np.argmax(data, axis=0)]
-    dM9 = 0.5 * abs(np.diff(velax).mean())
+    dM9 = 0.5 * abs(np.diff(velax).mean()) * np.ones(M9.shape)
     return M9, dM9
 
 
