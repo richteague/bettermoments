@@ -37,8 +37,8 @@ and you're done!
 
    user/methods
    user/command_line
-   user/citations
    tutorials/Cookbook_1
+   user/citations
 
 .. _Teague (2019): https://iopscience.iop.org/article/10.3847/2515-5172/ab2125
 .. _Teague & Foreman-Mackey (2018): https://iopscience.iop.org/article/10.3847/2515-5172/aae265

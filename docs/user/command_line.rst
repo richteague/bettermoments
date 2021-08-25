@@ -11,7 +11,7 @@ directory using,
 
     bettermoments path/to/cube.fits
 
-Which, by default, will use the :func:`bettermoments.collapse_cube.collapse_quadratic`
+Which, by default, will use the :func:`collapse_quadratic`
 function to calculate line center and line peak maps. This will automatically
 extract the data array and spectral axis from the cube and provide them to the
 appropriate functions.
