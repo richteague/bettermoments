@@ -439,6 +439,7 @@ def main():
     save_to_FITS(moments=moments,
                  method=args.method,
                  path=args.path,
+                 outname=args.outname,
                  overwrite=args.nooverwrite)
 
 

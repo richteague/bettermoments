@@ -240,7 +240,7 @@ def _save_user_mask(data, args):
                  output_verify='silentfix')
 
 
-def save_to_FITS(moments, method, path, overwrite=True):
+def save_to_FITS(moments, method, path, outname=None, overwrite=True):
     """
     Save the returned fits from ``collapse_{method_name}`` as FITS cubes.
     The filenames will replace the ``.fits`` extension with ``_{param}.fits``.
@@ -251,6 +251,8 @@ def save_to_FITS(moments, method, path, overwrite=True):
         method (str): Name of the collapse method used, e.g., ``'zeroth'`` if
             ``collapse_zeroth`` was used.
         path (str): Path of the original data cube to grab header information.
+        outname (str): Filename prefix for the saved images. Defaults to the
+            path of the provided FITS file.
         overwrite (Optional[bool]): Whether to overwrite files.
     """
     from .methods import collapse_method_products
@@ -259,8 +261,9 @@ def save_to_FITS(moments, method, path, overwrite=True):
     outputs = collapse_method_products(method=method).split(',')
     outputs = [output.strip() for output in outputs]
     assert len(outputs) == moments.shape[0], "Unexpected number of outputs."
+    outname = outname or path.copy()
     for moment, output in zip(moments, outputs):
         header = _write_header(path=path, bunit=_get_bunits(path)[output])
-        fits.writeto(path.replace('.fits', '_{}.fits'.format(output)),
+        fits.writeto(outname.replace('.fits', '') + '_{}.fits'.format(output),
                      moment.astype(float), header, overwrite=overwrite,
                      output_verify='silentfix')
