@@ -261,7 +261,7 @@ def save_to_FITS(moments, method, path, outname=None, overwrite=True):
     outputs = collapse_method_products(method=method).split(',')
     outputs = [output.strip() for output in outputs]
     assert len(outputs) == moments.shape[0], "Unexpected number of outputs."
-    outname = outname or path.copy()
+    outname = outname or path
     for moment, output in zip(moments, outputs):
         header = _write_header(path=path, bunit=_get_bunits(path)[output])
         fits.writeto(outname.replace('.fits', '') + '_{}.fits'.format(output),
