@@ -266,7 +266,7 @@ def main():
 
     # Load up the user-defined mask.
 
-    if not args.silent:
+    if not args.silent and args.mask is not None:
         print("Loading up user-defined mask...")
     user_mask = get_user_mask(data=data, user_mask_path=args.mask)
     if args.debug:
@@ -277,7 +277,7 @@ def main():
     # provided, use all channels. A more extensive version is possible for the
     # non-command line version.
 
-    if not args.silent:
+    if not args.silent and (args.firstchannel != 0 or args.lastchannel != -1):
         print("Defining channel-based mask...")
     channel_mask = get_channel_mask(data=data,
                                     firstchannel=args.firstchannel,
@@ -291,7 +291,7 @@ def main():
     # Savitzky-Golay filter. In this case, extend all even window sizes by one
     # to make sure it is an odd number.
 
-    if not args.silent:
+    if not args.silent and args.smooth:
         print("Smoothing the data...")
     data = smooth_data(data=data,
                        smooth=args.smooth,
@@ -313,7 +313,7 @@ def main():
     # Define the threshold mask. This includes the spatial smoothing of the
     # data for create Frankenmasks.
 
-    if not args.silent:
+    if not args.silent and args.clip is not None:
         print("Calculating threshold-based mask...")
     threshold_mask = get_threshold_mask(data=data,
                                         clip=args.clip,
