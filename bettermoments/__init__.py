@@ -1,5 +1,5 @@
-from .collapse_cube import *
+from .collapse_cube import estimate_RMS, smooth_data, get_channel_mask, get_user_mask, get_threshold_mask, get_combined_mask
 from .methods import *
 from .io import *
 
-__version__ = '1.6.1-2'
+__version__ = '1.6.1-4'
