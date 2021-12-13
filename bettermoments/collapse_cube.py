@@ -303,9 +303,9 @@ def main():
     # Calculate the RMS based on the first and last `noisechannels`, which is 5
     # by default. TODO: Test if there's a better way of doing this...
 
-    if not args.silent:
-        print("Estimating noise in the data...")
     if args.rms is None:
+        if not args.silent:
+            print("Estimating noise in the data...")
         args.rms = estimate_RMS(data, args.noisechannels)
         if not args.silent:
             print("Estimated RMS: {:.2e}.".format(args.rms))
