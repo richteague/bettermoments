@@ -203,40 +203,42 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('path',
                         help='Path to the FITS cube to collapse.')
-    parser.add_argument('-method', default='quadratic',
-                        help='Method used to collapse cube.')
-    parser.add_argument('-smooth', default=0, type=int,
-                        help='Width of filter to smooth spectrally.')
-    parser.add_argument('-rms', default=None, type=float,
-                        help='Estimated uncertainty on each pixel.')
-    parser.add_argument('-processes', default=-1, type=int,
-                        help='Number of process to use for analytical fits.')
-    parser.add_argument('-noisechannels', default=5, type=int,
-                        help='Number of end channels to use to estimate RMS.')
-    parser.add_argument('-mask', default=None,
-                        help='Path to the mask FITS cube.')
+    parser.add_argument('-clip', default=None, nargs='*', type=float,
+                        help='Mask absolute values below this SNR.')
+    parser.add_argument('-combine', default='and',
+                        help='How to combine the masks if provided.')
     parser.add_argument('-firstchannel', default=0, type=int,
                         help='First channel to use when collapsing cube.')
     parser.add_argument('-lastchannel', default=-1, type=int,
                         help='Last channel to use when collapsing cube.')
-    parser.add_argument('-clip', default=None, nargs='*', type=float,
-                        help='Mask absolute values below this SNR.')
-    parser.add_argument('-smooththreshold', default=0.0, type=float,
-                        help='Kernel in beam FWHM to smooth threshold map.')
-    parser.add_argument('-combine', default='and',
-                        help='How to combine the masks if provided.')
-    parser.add_argument('-polyorder', default=0, type=int,
-                        help='Polynomial order to use for SavGol filtering.')
+    parser.add_argument('-mask', default=None,
+                        help='Path to the mask FITS cube.')
+    parser.add_argument('-method', default='quadratic',
+                        help='Method used to collapse cube.')
+    parser.add_argument('-noisechannels', default=5, type=int,
+                        help='Number of end channels to use to estimate RMS.')
     parser.add_argument('-outname', default=None, type=str,
                         help='Filename prefix for the saved images.')
-    parser.add_argument('--nooverwrite', action='store_false',
-                        help='Do not overwrite files.')
-    parser.add_argument('--silent', action='store_true',
-                        help='Do not see how the sausages are made.')
-    parser.add_argument('--returnmask', action='store_true',
-                        help='Return the masked used as a FITS file.')
+    parser.add_argument('-polyorder', default=0, type=int,
+                        help='Polynomial order to use for SavGol filtering.')
+    parser.add_argument('-processes', default=-1, type=int,
+                        help='Number of process to use for analytical fits.')
+    parser.add_argument('-rms', default=None, type=float,
+                        help='Estimated uncertainty on each pixel.')
+    parser.add_argument('-smooth', default=0, type=int,
+                        help='Width of filter to smooth spectrally.')
+    parser.add_argument('-smooththreshold', default=0.0, type=float,
+                        help='Kernel in beam FWHM to smooth threshold map.')
+    parser.add_argument('-stokes', default=0, type=int,
+                        help='Stokes channel to use.')
     parser.add_argument('--debug', action='store_true',
                         help='Return all intermediate products to help debug.')
+    parser.add_argument('--nooverwrite', action='store_false',
+                        help='Do not overwrite files.')
+    parser.add_argument('--returnmask', action='store_true',
+                        help='Return the masked used as a FITS file.')
+    parser.add_argument('--silent', action='store_true',
+                        help='Do not see how the sausages are made.')
 
     args = parser.parse_args()
 
@@ -262,7 +264,7 @@ def main():
     if not args.silent:
         print("Loading up data...")
     from .io import load_cube
-    data, velax = load_cube(args.path)
+    data, velax = load_cube(args.path, args.stokes)
 
     # Load up the user-defined mask.
 

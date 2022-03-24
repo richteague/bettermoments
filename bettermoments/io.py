@@ -10,14 +10,16 @@ import numpy as np
 # -- READ DATA -- #
 
 
-def load_cube(path):
+def load_cube(path, stokes=0):
     """Return the data and velocity axis from the cube."""
-    return _get_data(path), _get_velax(path)
+    return _get_data(path, stokes=stokes), _get_velax(path)
 
 
-def _get_data(path, fill_value=0.0):
-    """Read the FITS cube. Should remove Stokes axis if attached."""
+def _get_data(path, fill_value=0.0, stokes=0):
+    """Read the FITS cube."""
     data = np.squeeze(fits.getdata(path))
+    if data.ndim == 4:
+        data = data[int(stokes)]
     return np.where(np.isfinite(data), data, fill_value)
 
 
