@@ -492,7 +492,7 @@ def collapse_method_products(method):
     returns['width'] = 'dV, ddV'
     returns['gaussian'] = 'gv0, dgv0, gdV, dgdV, gFnu, dgFnu'
     returns['gaussthick'] = 'gv0, dgv0, gdV, dgdV, gFnu, dgFnu, gtau, dgtau'
-    returns['gausshermite'] = 'ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu '
+    returns['gausshermite'] = 'ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu, '
     returns['gausshermite'] += 'ghh3, dghh3, ghh4, dghh4'
     try:
         return returns[method]

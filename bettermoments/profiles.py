@@ -108,7 +108,7 @@ def gaussthick(x, *params):
     """
     assert len(params) == free_params('gaussthick')
     tau = gaussian(x, params[0], params[1], params[3])
-    model = params[2] * (1.0 - np.exp(-np.clip(tau, amin=0.0, amax=None)))
+    model = params[2] * (1.0 - np.exp(-np.clip(tau, a_min=0.0, a_max=1e10)))
     return model / (1.0 - np.exp(-params[3]))
 
 
