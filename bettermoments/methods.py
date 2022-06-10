@@ -232,8 +232,11 @@ def collapse_gaussian(velax, data, rms, indices=None, chunks=1, **kwargs):
             run the fits with separate processes through
             ``multiprocessing.pool``.
 
-    Returns ``gv0, dgv0, gdV, dgdV, gFnu, dgFnu``:
-        TBD
+    Returns:
+        ``gv0`` (`ndarray`), ``dgv0`` (`ndarray`), ``gFnu`` (`ndarray`),
+        ``dgFnu`` (`ndarray`), ``gdV`` (`ndarray`), ``dgdV`` (`ndarray`):
+            The Gaussian center, ``gv0``, the line peak, ``gFnu`` and the
+            Doppler width, ``gdV``, all with associated uncertainties.
     """
     return collapse_analytical(velax=velax, data=data, rms=rms,
                                model_function='gaussian', indices=indices,
@@ -491,7 +494,8 @@ def collapse_method_products(method):
     returns['quadratic'] = 'v0, dv0, Fnu, dFnu'
     returns['width'] = 'dV, ddV'
     returns['gaussian'] = 'gv0, dgv0, gdV, dgdV, gFnu, dgFnu'
-    returns['gaussthick'] = 'gv0, dgv0, gdV, dgdV, gFnu, dgFnu, gtau, dgtau'
+    returns['gaussthick'] = 'gtv0, dgtv0, gtdV, dgtdV, gtFnu, dgtFnu, '
+    returns['gaussthick'] += 'gttau, dgttau'
     returns['gausshermite'] = 'ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu, '
     returns['gausshermite'] += 'ghh3, dghh3, ghh4, dghh4'
     try:

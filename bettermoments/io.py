@@ -32,40 +32,79 @@ def _get_bunits(path):
     """Return the dictionary of units for each collapse_function result."""
     bunits = {}
     flux_unit = fits.getheader(path)['bunit']
+
+    # method='first'
+
     bunits['M0'] = '{} m/s'.format(flux_unit)
     bunits['dM0'] = '{} m/s'.format(flux_unit)
+
+    # method='first'
+
     bunits['M1'] = 'm/s'
     bunits['dM1'] = 'm/s'
+
+    # method='second'
+
     bunits['M2'] = 'm/s'
     bunits['dM2'] = 'm/s'
+
+    # method='eighth'
+
     bunits['M8'] = '{}'.format(flux_unit)
     bunits['dM8'] = '{}'.format(flux_unit)
+
+    # method='ninth'
+
     bunits['M9'] = 'm/s'
     bunits['dM9'] = 'm/s'
+
+    # method='quadratic'
+
     bunits['v0'] = 'm/s'
-    bunits['dv0'] = 'm/s'
     bunits['Fnu'] = '{}'.format(flux_unit)
+    bunits['dv0'] = 'm/s'
     bunits['dFnu'] = '{}'.format(flux_unit)
+
+    # method='width'
+
     bunits['dV'] = 'm/s'
     bunits['ddV'] = 'm/s'
-    bunits['gv0'] = bunits['v0']
-    bunits['gFnu'] = bunits['Fnu']
-    bunits['gdV'] = bunits['dV']
-    bunits['gtau'] = ''
-    bunits['dgv0'] = bunits['gv0']
-    bunits['dgFnu'] = bunits['gFnu']
-    bunits['dgdV'] = bunits['gdV']
-    bunits['dgtau'] = ''
-    bunits['ghv0'] = bunits['v0']
-    bunits['ghFnu'] = bunits['Fnu']
-    bunits['ghdV'] = bunits['dV']
+
+    # method='gaussian'
+
+    bunits['gv0'] = 'm/s'
+    bunits['gFnu'] = '{}'.format(flux_unit)
+    bunits['gdV'] = 'm/s'
+    bunits['dgv0'] = 'm/s'
+    bunits['dgFnu'] = '{}'.format(flux_unit)
+    bunits['dgdV'] = 'm/s'
+
+    # method='gaussthick'
+
+    bunits['gtv0'] = 'm/s'
+    bunits['gtFnu'] = '{}'.format(flux_unit)
+    bunits['gtdV'] = 'm/s'
+    bunits['gttau'] = ''
+    bunits['dgtv0'] = 'm/s'
+    bunits['dgtFnu'] = '{}'.format(flux_unit)
+    bunits['dgtdV'] = 'm/s'
+    bunits['dgttau'] = ''
+
+    # method='gausshermite'
+
+    bunits['ghv0'] = 'm/s'
+    bunits['ghFnu'] = '{}'.format(flux_unit)
+    bunits['ghdV'] = 'm/s'
     bunits['ghh3'] = ''
     bunits['ghh4'] = ''
-    bunits['dghv0'] = bunits['gv0']
-    bunits['dghFnu'] = bunits['gFnu']
-    bunits['dghdV'] = bunits['gdV']
-    bunits['dghh3'] = bunits['ghh3']
-    bunits['dghh4'] = bunits['ghh4']
+    bunits['dghv0'] = 'm/s'
+    bunits['dghFnu'] = '{}'.format(flux_unit)
+    bunits['dghdV'] = 'm/s'
+    bunits['dghh3'] = ''
+    bunits['dghh4'] = ''
+
+    # Mask
+
     bunits['mask'] = 'bool'
     return bunits
 
