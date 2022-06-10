@@ -236,7 +236,7 @@ def collapse_gaussian(velax, data, rms, indices=None, chunks=1, **kwargs):
         ``gv0`` (`ndarray`), ``dgv0`` (`ndarray`), ``gFnu`` (`ndarray`),
         ``dgFnu`` (`ndarray`), ``gdV`` (`ndarray`), ``dgdV`` (`ndarray`):
             The Gaussian center, ``gv0``, the line peak, ``gFnu`` and the
-            Doppler width, ``gdV``, all with associated uncertainties.
+            Doppler width, ``gdV``, all with associated uncertainties, ``dg*``.
     """
     return collapse_analytical(velax=velax, data=data, rms=rms,
                                model_function='gaussian', indices=indices,
@@ -261,8 +261,13 @@ def collapse_gaussthick(velax, data, rms, indices=None, chunks=1, **kwargs):
             run the fits with separate processes through
             ``multiprocessing.pool``.
 
-    Returns ``gv0, dgv0, gdV, dgdV, gFnu, dgFnu, gtau, dgtau``:
-        TBD
+    Returns:
+        ``gtv0`` (`ndarray`), ``dgtv0`` (`ndarray`), ``gtFnu`` (`ndarray`),
+        ``dgtFnu`` (`ndarray`), ``gtdV`` (`ndarray`), ``dgtdV`` (`ndarray`),
+        ``gttau`` (`ndarray`), ``dgttau`` (`ndarray`):
+            The Gaussian center, ``gtv0``, the line peak, ``gtFnu``, the Dopler
+            width, ``gtdV``, and the effective optical depth, ``gttau``, all
+            with associated uncertainties, ``dgt*``.
     """
     return collapse_analytical(velax=velax, data=data, rms=rms,
                                model_function='gaussthick', indices=indices,
@@ -287,8 +292,16 @@ def collapse_gausshermite(velax, data, rms, indices=None, chunks=1, **kwargs):
             run the fits with separate processes through
             ``multiprocessing.pool``.
 
-    Returns ``ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu, ghh3, dghh3, ghh4, dghh4``:
-        TBD
+    Returns:
+        ``ghv0`` (`ndarray`), ``dghv0`` (`ndarray`), ``ghFnu`` (`ndarray`),
+        ``dghFnu`` (`ndarray`), ``ghdV`` (`ndarray`), ``dghdV`` (`ndarray`),
+        ``ghh3`` (`ndarray`), ``dghh3`` (`ndarray`), ``ghh4`` (`ndarray`),
+        ``dghh4`` (`ndarray`):
+            The Gaussian center, ``ghv0``, the line peak, ``ghFnu``, the Dopler
+            width, ``ghdV``, with additional expansion terms ``ghh3`, the
+            assymetry of the line and ``ghh4``, the saturation of the line
+            core., All values come with their  associated uncertainties,
+            ``dgt*``.
     """
     return collapse_analytical(velax=velax, data=data, rms=rms,
                                model_function='gausshermite', indices=indices,
