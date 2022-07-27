@@ -272,7 +272,7 @@ def _x0_prior(x):
 
 def _dx_prior(x):
     """Default dx prior."""
-    return [0.0, 0.25 * (x.max() - x.min()), 'flat']
+    return [0.0, 0.25 * abs(x.max() - x.min()), 'flat']
 
 
 def _A_prior(y):
