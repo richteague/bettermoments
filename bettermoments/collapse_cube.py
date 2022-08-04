@@ -237,6 +237,8 @@ def main():
                         help='Do not overwrite files.')
     parser.add_argument('--returnmask', action='store_true',
                         help='Return the masked used as a FITS file.')
+    parser.add_argument('--returnmodel', action='store_true',
+                        help='Return a model cube built from the moments.')
     parser.add_argument('--silent', action='store_true',
                         help='Do not see how the sausages are made.')
 
@@ -436,13 +438,27 @@ def main():
     # Save as FITS files.
 
     if not args.silent:
-        print("Saving maps...")
+        print("Saving moment maps...")
     from .io import save_to_FITS
     save_to_FITS(moments=moments,
                  method=args.method,
                  path=args.path,
                  outname=args.outname,
                  overwrite=args.nooverwrite)
+
+    # If applicable, build a model cube from the decomposition.
+
+    if args.returnmodel:
+        if not args.silent:
+            print("Building and saving model...")
+        from .profiles import build_cube
+        from .io import _save_model
+        try:
+            model = build_cube(x=velax, moments=moments, method=args.method)
+        except ValueError:
+            print("Model failed, returning empty data cube.")
+            model = np.zeros(masked_data.shape)
+        _save_model(model=model, args=args)
 
 
 if __name__ == '__main__':

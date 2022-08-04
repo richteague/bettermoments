@@ -106,6 +106,13 @@ def _get_bunits(path):
     # Mask
 
     bunits['mask'] = 'bool'
+
+    # Models
+
+    bunits['gaussian_model'] = ''.format(flux_unit)
+    bunits['gaussthick_model'] = ''.format(flux_unit)
+    bunits['gausshermite_model'] = ''.format(flux_unit)
+
     return bunits
 
 
@@ -278,6 +285,24 @@ def _save_user_mask(data, args):
     header['COMMENT'] = '-combine {}'.format(args.combine)
     new_path = args.path.replace('.fits', '_user_mask.fits')
     fits.writeto(new_path, data, header, overwrite=args.nooverwrite,
+                 output_verify='silentfix')
+
+
+def _save_model(model, args):
+    """
+    Same the reconstructed model as a FITS cube. The filename will replace the
+    ``.fits`` extension with ``{method_name}_model.fits``.
+
+    Args:
+        model (array): Model cube to save.
+        method (str): Name of the collapse method used, e.g., ``'gaussian'`` if
+            ``collapse_gaussian`` was used.
+    """
+    header = fits.getheader(args.path, copy=True)
+    header['COMMENT'] = 'model image from -method {}'.format(args.method)
+    header['COMMENT'] = 'made with bettermoments'
+    new_path = args.path.replace('.fits', '_{}_model.fits'.format(args.method))
+    fits.writeto(new_path, model, header, overwrite=args.nooverwrite,
                  output_verify='silentfix')
 
 

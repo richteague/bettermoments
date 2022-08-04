@@ -183,3 +183,54 @@ def gausshermite_cont(x, *params):
     model *= 1.0 + params[3] * _H3(xx) + params[4] * _H4(xx)
     model += params[5]
     return model
+
+
+def build_cube(x, moments, method):
+    """
+    From a list of (N, M) moment maps, construct a model data cube on the
+    coordinate systems of the provided cube.
+
+    Args:
+        x (arr): Velocity axis in [m/s].
+        moments (array): Array of best-fit parameters.
+        method (str): Method used to decompose the data.
+
+    Returns:
+        cube (array): 3D data cube.
+    """
+
+    # Test to see if the number of free parameters is correct.
+
+    if moments.shape[0] != 2 * free_params(method):
+        raise ValueError("Incorrect number of free parameters.")
+
+    # Build the cube. We do this explicitly because I don't know how to
+    # broadcast and unpack at once and perhaps leaves the option for more
+    # complex emission profiles.
+
+    if method == 'gaussian':
+        v0, Fnu, dV = moments[:3]
+        cube = gaussian(x[:, None, None],
+                        v0[None, :, :],
+                        dV[None, :, :],
+                        Fnu[None, :, :])
+    elif method == 'gaussthick':
+        v0, Fnu, dV, tau = moments[:4]
+        cube = gaussthick(x[:, None, None],
+                          v0[None, :, :],
+                          dV[None, :, :],
+                          Fnu[None, :, :],
+                          tau[None, :, :])
+    elif method == 'gausshermite':
+        v0, Fnu, dV, h3, h4 = moments[:5]
+        cube = gausshermite(x[:, None, None],
+                            v0[None, :, :],
+                            dV[None, :, :],
+                            h3[None, :, :],
+                            h4[None, :, :])
+    else:
+        raise ValueError(f"Cannot build cube for method {method}.")
+
+    # Return the cube.
+
+    return cube
