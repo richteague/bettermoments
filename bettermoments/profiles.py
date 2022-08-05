@@ -209,20 +209,20 @@ def build_cube(x, moments, method):
     # complex emission profiles.
 
     if method == 'gaussian':
-        v0, Fnu, dV = moments[:3]
+        v0, dV, Fnu = moments[::2]
         cube = gaussian(x[:, None, None],
                         v0[None, :, :],
                         dV[None, :, :],
                         Fnu[None, :, :])
     elif method == 'gaussthick':
-        v0, Fnu, dV, tau = moments[:4]
+        v0, dV, Fnu, tau = moments[::2]
         cube = gaussthick(x[:, None, None],
                           v0[None, :, :],
                           dV[None, :, :],
                           Fnu[None, :, :],
                           tau[None, :, :])
     elif method == 'gausshermite':
-        v0, Fnu, dV, h3, h4 = moments[:5]
+        v0, dV, Fnu, h3, h4 = moments[::2]
         cube = gausshermite(x[:, None, None],
                             v0[None, :, :],
                             dV[None, :, :],

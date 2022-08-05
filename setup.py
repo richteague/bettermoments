@@ -10,9 +10,9 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 setuptools.setup(
     name="bettermoments",
-    version="1.7",
+    version="1.7-1",
     author="Richard Teague & Daniel Foreman-Mackey",
-    author_email='richard.d.teague@cfa.harvard.edu',
+    author_email='rteague@mit.edu',
     packages=["bettermoments"],
     url="https://github.com/richteague/bettermoments",
     license="LICENSE.md",
