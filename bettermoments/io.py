@@ -109,9 +109,9 @@ def _get_bunits(path):
 
     # Models
 
-    bunits['gaussian_model'] = ''.format(flux_unit)
-    bunits['gaussthick_model'] = ''.format(flux_unit)
-    bunits['gausshermite_model'] = ''.format(flux_unit)
+    bunits['gaussian_model'] = '{}'.format(flux_unit)
+    bunits['gaussthick_model'] = '{}'.format(flux_unit)
+    bunits['gausshermite_model'] = '{}'.format(flux_unit)
 
     return bunits
 
@@ -202,6 +202,21 @@ def _write_header(path, bunit):
         new_header['SPECSYS'] = header['SPECSYS']
     except KeyError:
         pass
+
+    # This tries to import the correct coordinate system (i.e., not getting
+    # confused between J2000 and ICRS coordinates).
+
+    try:
+        new_header['EQUINOX'] = header['EQUINOX']
+    except KeyError:
+        pass
+    try:
+        new_header['RADESYS'] = header['RADSYS']
+    except KeyError:
+        pass
+    if 'EQUINOX' in new_header.keys() and 'RADSYS' in new_header.keys():
+        print("WARNING: Both 'EQUINOX' and 'RADSYS' found in header.")
+
     new_header['COMMENT'] = 'made with bettermoments'
     return new_header
 
