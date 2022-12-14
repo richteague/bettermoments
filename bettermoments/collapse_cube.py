@@ -10,6 +10,11 @@ import argparse
 import numpy as np
 import multiprocessing
 
+# -- SUPPRESS WARNINGS -- #
+
+import warnings
+warnings.filterwarnings("ignore")
+
 # -- DATA MANIPULATION -- #
 
 
@@ -432,11 +437,20 @@ def main():
                                         chunks=args.processes,
                                         mcmc=None)
 
+    elif args.method == 'doublegauss':
+        from .methods import collapse_doublegauss
+        print("Using {} CPUs.".format(args.processes))
+        moments = collapse_doublegauss(velax=velax,
+                                       data=masked_data,
+                                       rms=args.rms,
+                                       chunks=args.processes,
+                                       mcmc=None)
+
     else:
         raise ValueError("Unknown method.")
 
     # Save as FITS files.
-
+    
     if not args.silent:
         print("Saving moment maps...")
     from .io import save_to_FITS

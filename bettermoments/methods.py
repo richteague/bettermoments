@@ -308,6 +308,42 @@ def collapse_gausshermite(velax, data, rms, indices=None, chunks=1, **kwargs):
                                chunks=chunks, **kwargs)
 
 
+def collapse_doublegauss(velax, data, rms, indices=None, chunks=1, **kwargs):
+    r"""
+    Collapse the cube by fitting two Gaussian line profiles to each pixel.
+    This function is a wrapper of `collapse_analytical` which provides more
+    details about the arguments.
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Maksed intensity or brightness temperature array. The
+            first axis must be the velocity axis.
+        rms (float): Noise per pixel in same units as ``data``.
+        indices (Optional[list]): A list of pixels described by
+            ``(y_idx, x_idx)`` tuples to fit. If none are provided, will fit
+            all pixels.
+        chunks (Optional[int]): Split the cube into ``chunks`` sections and
+            run the fits with separate processes through
+            ``multiprocessing.pool``.
+
+    Returns:
+        ``dgv0`` (`ndarray`), ``ddgv0`` (`ndarray`), ``dgFnu`` (`ndarray`),
+        ``ddgFnu`` (`ndarray`), ``dgdV`` (`ndarray`), ``ddgdV`` (`ndarray`),
+        ``dgv0b`` (`ndarray`), ``ddgv0b`` (`ndarray`), ``dgFnub`` (`ndarray`),
+        ``ddgFnub`` (`ndarray`), ``dgdVb`` (`ndarray`), ``ddgdVb`` (`ndarray`):
+            The Gaussian center, ``dgv0``, the line peak, ``dgFnu``, the Doppler
+            width, ``dgdV``. All values come with their  associated
+            uncertainties, ``ddg*``. All values with ``b`` ending are for the
+            secondary component.
+    """
+    params =  collapse_analytical(velax=velax, data=data, rms=rms,
+                                  model_function='doublegauss', indices=indices,
+                                  chunks=chunks, **kwargs)
+    return params
+    i = np.argmax(params[2::6], axis=0)
+    j = np.argmin(params[2::6], axis=0)
+    return [params[0::6][i], params[1::6][i], params[2::6][i], params[3::6][i], params[4::6][i], params[5::6][i], params[0::6][j], params[1::6][j], params[2::6][j], params[3::6][j], params[4::6][j], params[5::6][j]]
+
 def collapse_analytical(velax, data, rms, model_function, indices=None,
                         chunks=1, **kwargs):
     r"""
@@ -476,7 +512,7 @@ def available_collapse_methods():
     """Prints the available methods for collapsing the datacube."""
     funcs = ['zeroth', 'first', 'second', 'eighth', 'ninth',
              'maximum', 'quadratic', 'width', 'gaussian',
-             'gaussthick', 'gausshermite']
+             'gaussthick', 'gausshermite', 'doublegauss']
     txt = 'Available methods are:\n'
     txt += '\n'
     txt += '\t {:12} (integrated intensity)\n'
@@ -490,6 +526,7 @@ def available_collapse_methods():
     txt += '\t {:12} (gaussian fit)\n'
     txt += '\t {:12} (gaussian with optically thick core fit)\n'
     txt += '\t {:12} (gaussian-hermite expansion fit)\n'
+    txt += '\t {:12} (double gaussian fit)\n'
     txt += '\n'
     txt += 'Call the function with `collapse_{{method_name}}`.'
     print(txt.format(*funcs))
@@ -511,6 +548,8 @@ def collapse_method_products(method):
     returns['gaussthick'] += 'gttau, dgttau'
     returns['gausshermite'] = 'ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu, '
     returns['gausshermite'] += 'ghh3, dghh3, ghh4, dghh4'
+    returns['doublegauss'] = 'dgv0, ddgv0, dgdV, ddgdV, dgFnu, ddgFnu,'
+    returns['doublegauss'] += 'dgv0b, ddgv0b, dgdVb, ddgdVb, dgFnub, ddgFnub'
     try:
         return returns[method]
     except KeyError:

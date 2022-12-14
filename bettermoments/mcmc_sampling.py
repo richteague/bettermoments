@@ -142,10 +142,9 @@ def fit_spectrum(x, y, dy, model_function, p0=None, priors=None, nwalkers=None,
         Various depending on the value of ``returns``.
     """
 
-    # Set the defaults.
+    # Set the starting positions.
 
     p0 = estimate_p0(x, y, model_function) if p0 is None else p0
-    priors = default_priors(x, y, model_function) if priors is None else priors
 
     # Try a parameter optimization.
 
@@ -155,6 +154,7 @@ def fit_spectrum(x, y, dy, model_function, p0=None, priors=None, nwalkers=None,
 
     # Run the sample niter times.
 
+    priors = default_priors(x, y, model_function) if priors is None else priors
     for n in range(niter):
         sampler = run_sampler(x, y, dy, p0, priors, model_function, nwalkers,
                               nburnin, nsteps, mcmc, scatter, **kwargs)
@@ -231,11 +231,12 @@ def _estimate_dx(x, y):
 def estimate_p0(x, y, model_function):
     """Estimate the p0 values from the spectrum."""
     p0 = [_estimate_x0(x, y), _estimate_dx(x, y), np.max(y)]
-    if 'multi' in model_function:
-        p0 += [_estimate_x0(x, y), _estimate_dx(x, y), np.max(y)]
-    elif 'thick' in model_function:
+    if 'doublegauss' == model_function:
+        v0b = np.average(x, weights=y) 
+        p0 += [v0b, p0[1], y[abs(x - v0b).argmin()]]
+    elif 'thickgauss' == model_function:
         p0 += [0.5]
-    elif 'hermite' in model_function:
+    elif 'gausshermite' == model_function:
         p0 += [0.0, 0.0]
     if '_cont' in model_function:
         p0 += [0.0]
