@@ -233,10 +233,10 @@ def collapse_gaussian(velax, data, rms, indices=None, chunks=1, **kwargs):
             ``multiprocessing.pool``.
 
     Returns:
-        ``gv0`` (`ndarray`), ``dgv0`` (`ndarray`), ``gFnu`` (`ndarray`),
-        ``dgFnu`` (`ndarray`), ``gdV`` (`ndarray`), ``dgdV`` (`ndarray`):
-            The Gaussian center, ``gv0``, the line peak, ``gFnu`` and the
-            Doppler width, ``gdV``, all with associated uncertainties, ``dg*``.
+        ``gv0`` (`ndarray`), ``dgv0`` (`ndarray`), ``gdV`` (`ndarray`),
+        ``dgdV`` (`ndarray`), ``gFnu`` (`ndarray`), ``dgFnu`` (`ndarray`):
+            The Gaussian center, ``gv0``, the Doppler line width, ``gdV`` and
+            line peak, ``gFnu``, all with associated uncertainties, ``dg*``.
     """
     return collapse_analytical(velax=velax, data=data, rms=rms,
                                model_function='gaussian', indices=indices,
@@ -262,11 +262,11 @@ def collapse_gaussthick(velax, data, rms, indices=None, chunks=1, **kwargs):
             ``multiprocessing.pool``.
 
     Returns:
-        ``gtv0`` (`ndarray`), ``dgtv0`` (`ndarray`), ``gtFnu`` (`ndarray`),
-        ``dgtFnu`` (`ndarray`), ``gtdV`` (`ndarray`), ``dgtdV`` (`ndarray`),
-        ``gttau`` (`ndarray`), ``dgttau`` (`ndarray`):
-            The Gaussian center, ``gtv0``, the line peak, ``gtFnu``, the Dopler
-            width, ``gtdV``, and the effective optical depth, ``gttau``, all
+        ``gtv0`` (`ndarray`), ``dgtv0`` (`ndarray`), ``gtdV`` (`ndarray`),
+        ``dgtdV`` (`ndarray`), ``gtFnu`` (`ndarray`), ``dgtFnu`` (`ndarray`), 
+        ``gttau`` (`ndarray`), `dgttau`` (`ndarray`):
+            The Gaussian center, ``gtv0``, the Dopler width, ``gtdV``, the line
+            peak, ``gtFnu``, and the effective optical depth, ``gttau``, all
             with associated uncertainties, ``dgt*``.
     """
     return collapse_analytical(velax=velax, data=data, rms=rms,
@@ -311,6 +311,7 @@ def collapse_gausshermite(velax, data, rms, indices=None, chunks=1, **kwargs):
 def collapse_doublegauss(velax, data, rms, indices=None, chunks=1, **kwargs):
     r"""
     Collapse the cube by fitting two Gaussian line profiles to each pixel.
+    The first Gaussian component will be the peak of the two components.
     This function is a wrapper of `collapse_analytical` which provides more
     details about the arguments.
 
@@ -327,22 +328,23 @@ def collapse_doublegauss(velax, data, rms, indices=None, chunks=1, **kwargs):
             ``multiprocessing.pool``.
 
     Returns:
-        ``dgv0`` (`ndarray`), ``ddgv0`` (`ndarray`), ``dgFnu`` (`ndarray`),
-        ``ddgFnu`` (`ndarray`), ``dgdV`` (`ndarray`), ``ddgdV`` (`ndarray`),
-        ``dgv0b`` (`ndarray`), ``ddgv0b`` (`ndarray`), ``dgFnub`` (`ndarray`),
-        ``ddgFnub`` (`ndarray`), ``dgdVb`` (`ndarray`), ``ddgdVb`` (`ndarray`):
-            The Gaussian center, ``dgv0``, the line peak, ``dgFnu``, the Doppler
-            width, ``dgdV``. All values come with their  associated
-            uncertainties, ``ddg*``. All values with ``b`` ending are for the
-            secondary component.
+        ``ggv0`` (`ndarray`), ``dggv0`` (`ndarray`), ``ggFnu`` (`ndarray`),
+        ``dggFnu`` (`ndarray`), ``ggdV`` (`ndarray`), ``dggdV`` (`ndarray`),
+        ``ggv0b`` (`ndarray`), ``dggv0b`` (`ndarray`), ``ggFnub`` (`ndarray`),
+        ``dggFnub`` (`ndarray`), ``ggdVb`` (`ndarray`), ``dggdVb`` (`ndarray`):
+            The Gaussian center, ``ggv0``, the line peak, ``ggFnu`` and the
+            Doppler width, ``ggdV``, with their  associated uncertainties,
+            ``dgg*``. All values with ``b`` ending are for the secondary
+            component.
     """
-    params =  collapse_analytical(velax=velax, data=data, rms=rms,
-                                  model_function='doublegauss', indices=indices,
-                                  chunks=chunks, **kwargs)
-    return params
-    i = np.argmax(params[2::6], axis=0)
-    j = np.argmin(params[2::6], axis=0)
-    return [params[0::6][i], params[1::6][i], params[2::6][i], params[3::6][i], params[4::6][i], params[5::6][i], params[0::6][j], params[1::6][j], params[2::6][j], params[3::6][j], params[4::6][j], params[5::6][j]]
+    p = collapse_analytical(velax=velax, data=data, rms=rms,
+                            model_function='doublegauss', indices=indices,
+                            chunks=chunks, **kwargs)
+    idx = np.argmax(p[2::6], axis=0)
+    pf = [np.where(idx, p[i+6], p[i]) for i in range(6)]
+    pb = [np.where(idx, p[i], p[i+6]) for i in range(6)]
+    return *pf, *pb
+    
 
 def collapse_analytical(velax, data, rms, model_function, indices=None,
                         chunks=1, **kwargs):
@@ -548,8 +550,8 @@ def collapse_method_products(method):
     returns['gaussthick'] += 'gttau, dgttau'
     returns['gausshermite'] = 'ghv0, dghv0, ghdV, dghdV, ghFnu, dghFnu, '
     returns['gausshermite'] += 'ghh3, dghh3, ghh4, dghh4'
-    returns['doublegauss'] = 'dgv0, ddgv0, dgdV, ddgdV, dgFnu, ddgFnu,'
-    returns['doublegauss'] += 'dgv0b, ddgv0b, dgdVb, ddgdVb, dgFnub, ddgFnub'
+    returns['doublegauss'] = 'ggv0, dggv0, ggdV, dggdV, ggFnu, dggFnu,'
+    returns['doublegauss'] += 'ggv0b, dggv0b, ggdVb, dggdVb, ggFnub, dggFnub'
     try:
         return returns[method]
     except KeyError:

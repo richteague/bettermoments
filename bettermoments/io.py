@@ -105,18 +105,18 @@ def _get_bunits(path):
 
     # method='doublegauss'
 
-    bunits['dgv0'] = 'm/s'
-    bunits['dgFnu'] = '{}'.format(flux_unit)
-    bunits['dgdV'] = 'm/s'
-    bunits['ddgv0'] = 'm/s'
-    bunits['ddgFnu'] = '{}'.format(flux_unit)
-    bunits['ddgdV'] = 'm/s'
-    bunits['dgv0b'] = 'm/s'
-    bunits['dgFnub'] = '{}'.format(flux_unit)
-    bunits['dgdVb'] = 'm/s'
-    bunits['ddgv0b'] = 'm/s'
-    bunits['ddgFnub'] = '{}'.format(flux_unit)
-    bunits['ddgdVb'] = 'm/s'
+    bunits['ggv0'] = 'm/s'
+    bunits['ggFnu'] = '{}'.format(flux_unit)
+    bunits['ggdV'] = 'm/s'
+    bunits['dggv0'] = 'm/s'
+    bunits['dggFnu'] = '{}'.format(flux_unit)
+    bunits['dggdV'] = 'm/s'
+    bunits['ggv0b'] = 'm/s'
+    bunits['ggFnub'] = '{}'.format(flux_unit)
+    bunits['ggdVb'] = 'm/s'
+    bunits['dggv0b'] = 'm/s'
+    bunits['dggFnub'] = '{}'.format(flux_unit)
+    bunits['dggdVb'] = 'm/s'
 
     # Mask
 
