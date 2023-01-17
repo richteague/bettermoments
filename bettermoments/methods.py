@@ -595,8 +595,8 @@ def _interpolate_finite_errors(value, error, fill_value=1.0):
 
     # Interpolate errors onto regular grid and return where `value` is finite.
 
-    zi = NearestNDInterpolator(np.array([yy, xx]).T, zz)
     xi, yi = np.meshgrid(axis, axis)
+    zi = NearestNDInterpolator(np.array([yy, xx]).T, zz)
     zi = zi(np.array([xi, yi]).T)
     return value, np.where(np.isfinite(value), zi, np.nan)
 
