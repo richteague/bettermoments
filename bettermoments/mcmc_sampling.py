@@ -45,7 +45,8 @@ def lnpost(params, x, y, dy, priors, model_function):
 # -- Sampling Functions -- #
 
 
-def fit_cube(velax, data, rms, model_function, indices=None, **kwargs):
+def fit_cube(velax, data, rms, model_function, indices=None, priors=None,
+        **kwargs):
     """
     Cycle through the provided indices fitting each spectrum. Only spectra
     which have more more than twice the number of pixel compared to the number
@@ -62,6 +63,7 @@ def fit_cube(velax, data, rms, model_function, indices=None, **kwargs):
             Must be a function withing ``profiles.py``.
         indices (list): A list of pixels described by ``(y_idx, x_idx)`` tuples
             to fit. If none are provided, will fit all pixels.
+        priors (TBD): Probably a list of tuples: [p1, p2, type] for each parameter.
 
     Returns:
         fits (ndarray): A ``(Npix, Ndim, 2)`` shaped array of the fits and
@@ -69,14 +71,31 @@ def fit_cube(velax, data, rms, model_function, indices=None, **kwargs):
             with the best-fit values.
     """
 
-    # Check the inputs.
+    # Verify that the model function is appropriate.
 
-    assert velax.size == data.shape[0], "Incorrect velax and data shape."
     try:
         _ = import_function(model_function)
         nparams = free_params(model_function)
     except ValueError as error_message:
         print(error_message)
+
+    # Check the inputs and that the priors are the correct format. The priors
+    # should be a `nparams` length list, with each component containing two 2D
+    # arrays which have the same shape as a data channel and a string describing
+    # the prior type, either 'flat' or 'gaussian'.
+
+    assert velax.size == data.shape[0], "Incorrect velax and data shape."
+    if len(priors) != nparams:
+        message = "{} requires {} priors.".format(model_function, nparams)
+        raise ValueError(message)
+
+    priors = [] if priors is None else priors
+    for prior in priors:
+        if prior[0].shape != data[0].shape or prior[1].shape != data[0].shape:
+            raise ValueError("Priors must be the same shape as the data.")
+        if not prior[2].lower() in ['flat', 'gaussian']:
+            raise ValueError("Unknown prior type {}.".format(prior[2]))
+
     if indices is None:
         indices = np.indices(data[0].shape).reshape(2, data[0].size).T
     indices = np.atleast_2d(indices)
@@ -93,17 +112,29 @@ def fit_cube(velax, data, rms, model_function, indices=None, **kwargs):
     with tqdm(total=indices.shape[0]) as pbar:
         for i, idx in enumerate(indices):
             y = data[:, idx[0], idx[1]].copy()
+            
+            # Extract the correct pixel for the prior.
+
+            if len(priors) > 0:
+                prior = [[p[0][idx[0], idx[1]],
+                        p[1][idx[0], idx[1]],
+                        p[2]] for p in priors]
+            else:
+                prior = None
+        
             mask = np.logical_and(np.isfinite(y), y != 0.0)
             if len(y[mask]) > nparams * 2:
                 fits[i] = fit_spectrum(x[mask], y[mask], dy[mask],
-                                       model_function, **kwargs)
+                                       model_function,
+                                       priors=prior,
+                                       **kwargs)
             pbar.update(1)
     return np.swapaxes(fits, 1, 2)
 
 
 def fit_spectrum(x, y, dy, model_function, p0=None, priors=None, nwalkers=None,
-                 nburnin=500, nsteps=500, mcmc='emcee', scatter=1e-3,
-                 niter=1, returns='default', plots=False, **kwargs):
+        nburnin=500, nsteps=500, mcmc='emcee', scatter=1e-3, niter=1,
+        returns='default', plots=False, **kwargs):
     """
     Fit the provided spectrum with ``model_function``. If ``mcmc`` is not
     specified, the results of the ``scipy.optimize.curve_fit`` optimization
@@ -152,9 +183,15 @@ def fit_spectrum(x, y, dy, model_function, p0=None, priors=None, nwalkers=None,
     if mcmc is None:
         return p0, cvar
 
-    # Run the sample niter times.
+    # Define the priors, either a (min, max) range for each parameter or a
+    # Gaussian prior. Check that each one is OK.
 
     priors = default_priors(x, y, model_function) if priors is None else priors
+    if not (len(priors) == len(p0) and np.all([len(p) == 3 for p in priors])):
+        raise ValueError("Unknown prior type.")
+
+    # Run the sampler niter times.
+
     for n in range(niter):
         sampler = run_sampler(x, y, dy, p0, priors, model_function, nwalkers,
                               nburnin, nsteps, mcmc, scatter, **kwargs)
@@ -304,7 +341,7 @@ def _cont_prior(y):
 def default_priors(x, y, model_function):
     """Return the default flat priors."""
     priors = [_x0_prior(x), _dx_prior(x), _A_prior(y)]
-    if 'multi' in model_function:
+    if 'doublegauss' in model_function:
         priors += [_x0_prior(x), _dx_prior(x), _A_prior(y)]
     elif 'thick' in model_function:
         priors += [_tau_prior()]
