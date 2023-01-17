@@ -590,7 +590,7 @@ def _interpolate_finite_errors(value, error, fill_value=1.0):
     axis = np.arange(value.shape[0])
     xx, yy = np.meshgrid(axis, axis)
     xx, yy, zz = xx.flatten(), yy.flatten(), error.flatten()
-    mask = np.isfintite(zz)
+    mask = np.isfinite(zz)
     xx, yy, zz = xx[mask], yy[mask], zz[mask]
 
     # Interpolate errors onto regular grid and return where `value` is finite.
