@@ -559,6 +559,48 @@ def collapse_method_products(method):
         available_collapse_methods()
 
 
+def check_finite_errors(moments):
+    """Check if the errors are finite, and if not, replace them."""
+    verified_moments = ()
+    assert len(moments) % 2 == 0, "Odd number of moments."
+    for value, error in zip(moments[::2], moments[1::2]):
+        if not np.all(np.isfinite(value) == np.isfinite(error)):
+            value, error = _interpolate_finite_errors(value, error)
+        verified_moments += (value, error)
+    return verified_moments
+
+
+def _interpolate_finite_errors(value, error, fill_value=1.0):
+    """Replace NaN errors with interpolated finite errors."""
+    from scipy.interpolate import NearestNDInterpolator
+
+    # Check the moments are square images.
+
+    assert value.ndim == 2
+    assert value.shape == error.shape
+    assert value.shape[0] == value.shape[1]
+
+    # If there are no finite values at all, replace with `fill_value`.
+
+    if not np.any(np.isfinite(error)):
+        return value, np.ones(value.shape) * fill_value
+    
+    # Find all finite errors to use for interpolation.
+
+    axis = np.arange(value.shape[0])
+    xx, yy = np.meshgrid(axis, axis)
+    xx, yy, zz = xx.flatten(), yy.flatten(), error.flatten()
+    mask = np.isfintite(zz)
+    xx, yy, zz = xx[mask], yy[mask], zz[mask]
+
+    # Interpolate errors onto regular grid and return where `value` is finite.
+
+    zi = NearestNDInterpolator(np.array([yy, xx]).T, zz)
+    xi, yi = np.meshgrid(axis, axis)
+    zi = zi(np.array([xi, yi]).T)
+    return value, np.where(np.isfinite(value), zi, np.nan)
+
+
 def _starmap_with_kwargs(pool, fn, args_iter, kwargs_iter):
     """Allow us to pass args and kwargs to ``pool.starmap``."""
     args_for_starmap = zip(repeat(fn), args_iter, kwargs_iter)
