@@ -449,6 +449,13 @@ def main():
     else:
         raise ValueError("Unknown method.")
 
+    # Check for any NaN values in the uncertainty maps.
+
+    if not args.silent:
+        print("Checking for NaNs in error maps.")
+    from .methods import check_finite_errors
+    moments = check_finite_errors(moments)
+
     # Save as FITS files.
     
     if not args.silent:
