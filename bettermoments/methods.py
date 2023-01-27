@@ -343,7 +343,7 @@ def collapse_doublegauss(velax, data, rms, indices=None, chunks=1, **kwargs):
     idx = np.argmax(p[2::6], axis=0)
     pf = [np.where(idx, p[i+6], p[i]) for i in range(6)]
     pb = [np.where(idx, p[i], p[i+6]) for i in range(6)]
-    return *pf, *pb
+    return np.concatenate([pf, pb])
     
 
 def collapse_analytical(velax, data, rms, model_function, indices=None,
