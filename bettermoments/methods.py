@@ -391,8 +391,7 @@ def collapse_analytical(velax, data, rms, model_function, indices=None,
     chunk_edges = np.linspace(0, indices.shape[0], chunks+1)
     chunk_indices = np.digitize(np.arange(indices.shape[0]), chunk_edges)
     chunk_indices = [indices[chunk_indices == i] for i in range(1, chunks+1)]
-    chunk_indices = np.array(chunk_indices)
-    assert chunk_indices.shape[0] == chunks
+    assert len(chunk_indices) == chunks
 
     # Pass these off to different pools.
 
