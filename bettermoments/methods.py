@@ -214,6 +214,70 @@ def collapse_ninth(velax, data, rms):
     return M9, dM9
 
 
+def collapse_percentiles(velax, data, rms):
+    """
+    Collapse the cube by taking intensity-weighted percentiles. This can be
+    thought of as an extension to the first and second moments which are
+    intensity weighted averages and standard deviations. The advantage here is
+    that by looking at the 16th and 84th percentile individually, we learn
+    something about the skewness of the line (i.e., red-shifted side compared
+    to the blue-shifted side).
+
+    Args:
+        velax (ndarray): Velocity axis of the cube.
+        data (ndarray): Masked intensity or brightness temperature array. The
+            first axis must be the velocity axis.
+        rms (float): Noise per pixel in same units as ``data``.
+
+    Returns:
+        ``wp50`` ('ndarray'), ``dwp50`` ('ndarray'), ``wpdVb`` ('ndarray'),
+        ``dwpdVb`` ('ndarray'), ``wpdVr`` ('ndarray'), ``dwpdVr`` ('ndarray'),
+        ``wp1684`` ('ndarray'), ``wp1684`` ('ndarray'):
+            The intensity-weighted median, ``wp50``, the blue- and red-shifted
+            line widths, ``wpdVb`` and ``wpdVr``, and the line center based on
+            the center of the 16th and 84th percentile, ``wp1684``, all with
+            their associated uncertainties, ``dwp*``.
+    """
+    from tqdm import tqdm
+
+    # Dummy arrays.
+
+    wp = np.ones((3, data.shape[1], data.shape[2]))
+    dwp = np.ones(wp.shape)
+
+    # Calculate the weighted percentiles.
+
+    weights = np.cumsum(data.copy(), axis=0)
+    weights /= weights[-1]
+    pcnts = np.array([0.16, 0.5, 0.84])
+
+    # Loop through the pixels fiding the right values.
+
+    with tqdm(total=data.shape[1]*data.shape[2]) as pbar:
+        for i in range(weights.shape[2]):
+            for j in range(weights.shape[1]):
+                if weights[-1, j, i] == 0.0:
+                    wp[:, j, i] = np.nan
+                    dwp[:, j, i] = np.nan
+                else:
+                    wgts = weights[:, j, i]
+                    k = np.argmin(abs(wgts[:, None] - pcnts[None, :]), axis=0)
+                    wp[:, j, i] = np.interp(pcnts, wgts, velax)
+                    dwp[:, j, i] = np.gradient(velax, wgts)[k] * rms
+                pbar.update(1)
+
+    # Calculate the useful quantities.
+
+    wp50, dwp50 = wp[1], dwp[1]
+    wpdVb, dwpdVb = np.sqrt(2) * (wp50 - wp[0]), np.hypot(dwp50, dwp[0])
+    wpdVr, dwpdVr = np.sqrt(2) * (wp[2] - wp50), np.hypot(dwp[2], dwp50)
+    wp1684 = 0.5 * (wp[0] + wp[2])
+    dwp1684 = 0.5  * np.hypot(dwp[0], dwp[2])
+
+    # Return the values.
+
+    return wp50, dwp50, wpdVb, dwpdVb, wpdVr, dwpdVr, wp1684, dwp1684
+
 def collapse_gaussian(velax, data, rms, indices=None, chunks=1, **kwargs):
     r"""
     Collapse the cube by fitting a Gaussian line profile to each pixel. This
@@ -512,7 +576,7 @@ def collapse_width(velax, data, rms):
 def available_collapse_methods():
     """Prints the available methods for collapsing the datacube."""
     funcs = ['zeroth', 'first', 'second', 'eighth', 'ninth',
-             'maximum', 'quadratic', 'width', 'gaussian',
+             'maximum', 'quadratic', 'width', 'percentiles', 'gaussian',
              'gaussthick', 'gausshermite', 'doublegauss']
     txt = 'Available methods are:\n'
     txt += '\n'
@@ -524,6 +588,7 @@ def available_collapse_methods():
     txt += '\t {:12} (both collapse_eighth and collapse_ninth)\n'
     txt += '\t {:12} (quadratic fit to peak intensity)\n'
     txt += '\t {:12} (effective width for a Gaussian profile)\n'
+    txt += '\t {:12} (intesity weighted percentiles)\n'
     txt += '\t {:12} (gaussian fit)\n'
     txt += '\t {:12} (gaussian with optically thick core fit)\n'
     txt += '\t {:12} (gaussian-hermite expansion fit)\n'
@@ -544,6 +609,8 @@ def collapse_method_products(method):
     returns['maximum'] = 'M8, dM8, M9, dM9'
     returns['quadratic'] = 'v0, dv0, Fnu, dFnu'
     returns['width'] = 'dV, ddV'
+    returns['percentiles'] = 'wp50, dwp50, wpdVb, dwpdVb, wpdVr, dwpdVr, '
+    returns['percentiles'] += 'wp1684, dwp1684'
     returns['gaussian'] = 'gv0, dgv0, gdV, dgdV, gFnu, dgFnu'
     returns['gaussthick'] = 'gtv0, dgtv0, gtdV, dgtdV, gtFnu, dgtFnu, '
     returns['gaussthick'] += 'gttau, dgttau'

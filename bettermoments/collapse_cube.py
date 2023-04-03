@@ -410,6 +410,12 @@ def main():
                                  data=masked_data,
                                  rms=args.rms)
 
+    elif args.method == 'percentiles':
+        from .methods import collapse_percentiles
+        moments = collapse_percentiles(velax=velax,
+                                       data=masked_data,
+                                       rms=args.rms)
+
     elif args.method == 'gaussian':
         from .methods import collapse_gaussian
         print("Using {} CPUs.".format(args.processes))

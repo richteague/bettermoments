@@ -70,6 +70,17 @@ def _get_bunits(path):
     bunits['dV'] = 'm/s'
     bunits['ddV'] = 'm/s'
 
+    # method='percentiles'
+
+    bunits['wp50'] = 'm/s'
+    bunits['dwp50'] = 'm/s'
+    bunits['wpdVb'] = 'm/s'
+    bunits['dwpdVb'] = 'm/s'
+    bunits['wpdVr'] = 'm/s'
+    bunits['dwpdVr'] = 'm/s'
+    bunits['wp1684'] = 'm/s'
+    bunits['dwp1684'] = 'm/s'
+
     # method='gaussian'
 
     bunits['gv0'] = 'm/s'
