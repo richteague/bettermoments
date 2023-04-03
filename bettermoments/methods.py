@@ -247,7 +247,7 @@ def collapse_percentiles(velax, data, rms):
 
     # Calculate the weighted percentiles.
 
-    weights = np.cumsum(data.copy(), axis=0)
+    weights = np.cumsum(np.clip(data, a_min=0.0, a_max=None), axis=0)
     weights /= weights[-1]
     pcnts = np.array([0.16, 0.5, 0.84])
 
