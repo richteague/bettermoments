@@ -42,7 +42,7 @@ def collapse_zeroth(velax, data, rms):
             ``M0``, the integrated intensity along provided axis and ``dM0``,
             the uncertainty on ``M0`` in the same units as ``M0``.
     """
-    chan = np.diff(velax).mean()
+    chan = abs(np.diff(velax).mean())
     npix = np.sum(data != 0.0, axis=0)
     M0 = np.trapz(data, dx=chan, axis=0)
     dM0 = chan * rms * npix**0.5 * np.ones(M0.shape)

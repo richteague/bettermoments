@@ -121,7 +121,7 @@ def get_user_mask(data, user_mask_path=None):
     return user_mask.astype('float')
 
 
-def get_threshold_mask(data, clip=None, smooth_threshold_mask=0,
+def get_threshold_mask(data, clip=None, rms=None, smooth_threshold_mask=0,
                        noise_channels=5):
     """
     Returns a mask based on a sigma-clip to the input data. The most standard
@@ -137,6 +137,9 @@ def get_threshold_mask(data, clip=None, smooth_threshold_mask=0,
         clip (optional[float/tuple]): The sigma clip to apply. If a single
             value is provided, this is taken to be a symmetric mask. If a tuple
             if provided, this is taking as a minimum and maximum clip value.
+        rms (optional[float]): The RMS level to use for defining the noise. If
+            not specified, will calculate it based on the standard deviation of
+            the data.
         smooth_threshold_mask (optional[float]): Convolution kernel FWHM in
             pixels.
         noise_channels (optional[int]): Number of channels at the start and end
@@ -168,7 +171,15 @@ def get_threshold_mask(data, clip=None, smooth_threshold_mask=0,
         SNR = np.array(SNR)
     else:
         SNR = data.copy()
-    SNR /= estimate_RMS(SNR, noise_channels)
+
+    # Select the right RMS to use for the SNR calculate. If the RMS is provided,
+    # which is the default, we use that, otherwise we calculate it based on the
+    # standard deviation of (hopefully) line-free channels.
+
+    if rms is None:
+        SNR /= estimate_RMS(SNR, noise_channels)
+    else:
+        SNR /= rms
 
     # Return the mask.
 
@@ -326,6 +337,7 @@ def main():
         print("Calculating threshold-based mask...")
     threshold_mask = get_threshold_mask(data=data,
                                         clip=args.clip,
+                                        rms=args.rms,
                                         smooth_threshold_mask=args.smooththreshold,
                                         noise_channels=args.noisechannels)
     if args.debug:
