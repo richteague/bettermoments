@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 setuptools.setup(
     name="bettermoments",
-    version="1.8.7",
+    version="1.8.8",
     author="Richard Teague & Daniel Foreman-Mackey",
     author_email='rteague@mit.edu',
     packages=["bettermoments"],

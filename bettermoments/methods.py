@@ -221,7 +221,7 @@ def collapse_percentiles(velax, data, rms):
     intensity weighted averages and standard deviations. The advantage here is
     that by looking at the 16th and 84th percentile individually, we learn
     something about the skewness of the line (i.e., red-shifted side compared
-    to the blue-shifted side).
+    to the blue-shifted side) without assuming a line profile.
 
     Args:
         velax (ndarray): Velocity axis of the cube.
@@ -251,6 +251,12 @@ def collapse_percentiles(velax, data, rms):
     weights /= weights[-1]
     pcnts = np.array([0.16, 0.5, 0.84])
 
+    # Calculate the offset in velocity axis for the cumuative sum.
+    # This is because it calculates it for the value between velocity samples
+    # so there's a half-channel offset in the returned percentiles.
+
+    dv = 0.5 * np.diff(velax).mean()
+
     # Loop through the pixels fiding the right values.
 
     with tqdm(total=data.shape[1]*data.shape[2]) as pbar:
@@ -262,7 +268,7 @@ def collapse_percentiles(velax, data, rms):
                 else:
                     wgts = weights[:, j, i]
                     k = np.argmin(abs(wgts[:, None] - pcnts[None, :]), axis=0)
-                    wp[:, j, i] = np.interp(pcnts, wgts, velax)
+                    wp[:, j, i] = np.interp(pcnts, wgts, velax+dv)
                     dwp[:, j, i] = np.gradient(velax, wgts)[k] * rms
                 pbar.update(1)
 
