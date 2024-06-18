@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bettermoments"
+version = "1.9.0"
+requires-python = ">= 3.8"
+authors = [
+  {name = "Richard Teague", email = "rteague@mit.edu"},
+  {name = "Dan Foreman-Mackey", email = "dfm@dfm.io"},
+]
+
+[project.urls]
+Documentation = "https://bettermoments.readthedocs.io/en/latest"
+Repository = "https://github.com/richteague/bettermoments"
