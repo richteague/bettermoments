@@ -159,3 +159,27 @@ def test_dM1_monte_carlo(velax):
     scatter = np.std(samples)
     predicted = collapse_first(velax, line, RMS)[1][0, 0]
     assert np.isclose(predicted, scatter, rtol=0.25)
+
+
+@pytest.mark.parametrize('snr', [30, 100])
+@pytest.mark.parametrize('clip', [None, 4])
+def test_percentiles_uncertainties_match_scatter(snr, clip):
+    """
+    Regression test for #28: the propagated percentile uncertainties must
+    track the Monte Carlo scatter. The linearisation is ~15% high without a
+    mask (clip at zero) and ~15-40% low with a hard threshold mask (channels
+    crossing the threshold), but no longer 2-3x too large.
+    """
+    rng = np.random.default_rng(1)
+    velax = np.arange(200) * 40.0 - 1160.0
+    line = snr * np.exp(-0.5 * ((velax - 2842.5) / 250.0)**2)
+    data = line[:, None, None] + rng.standard_normal((200, 1, 2000))
+    if clip is not None:
+        data = np.where(np.abs(data) >= clip, data, 0.0)
+    wp50, dwp50, wpdVb, dwpdVb, wpdVr, dwpdVr, wp1684, dwp1684 = \
+        collapse_percentiles(velax, data, 1.0)
+    lo, hi = (0.95, 1.3) if clip is None else (0.6, 1.0)
+    for value, error in [(wp50, dwp50), (wpdVb, dwpdVb), (wpdVr, dwpdVr),
+                         (wp1684, dwp1684)]:
+        ratio = np.median(error) / np.std(value)
+        assert lo < ratio < hi

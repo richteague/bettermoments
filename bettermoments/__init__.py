@@ -4,4 +4,4 @@ from .collapse_cube import estimate_spectral_acf, build_spectral_covariance
 from .methods import *
 from .io import *
 
-__version__ = '1.11.1'
+__version__ = '2.0.0'

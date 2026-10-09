@@ -294,6 +294,16 @@ def collapse_percentiles(velax, data, rms):
     something about the skewness of the line (i.e., red-shifted side compared
     to the blue-shifted side) without assuming a line profile.
 
+    The uncertainties are a first-order propagation of ``rms`` through the
+    estimator, including the covariance between the cumulative and total
+    intensity and between the three percentiles. Only channels with positive
+    (unmasked, unclipped) intensity are assumed to carry noise. This is exact
+    for a fixed mask, but noise moving channels across a threshold mask is not
+    captured, so with a hard ``-clip`` the uncertainties are typically
+    underestimated by ~15-40%. Without a mask, linearising the clip at zero
+    overestimates them by ~15%. Correlated noise between channels is not
+    modelled.
+
     Args:
         velax (ndarray): Velocity axis of the cube. May be increasing or
             decreasing; a decreasing axis is reversed internally so that
@@ -323,78 +333,107 @@ def collapse_percentiles(velax, data, rms):
     dv = 0.5 * np.diff(velax).mean()
     pcnts = np.array([0.16, 0.5, 0.84])
 
-    # Normalized cumulative sum along velocity axis.
+    # Clipped intensities and their cumulative sum along the velocity axis,
+    # flattened to (n_valid, nv) for the pixels with some positive flux.
 
-    weights = np.cumsum(np.clip(data, a_min=0.0, a_max=None), axis=0)
-    total = weights[-1].copy()
-    valid = total > 0.0
-    weights[:, valid] /= total[valid]
-
-    # Flatten spatial dims and work only on valid pixels: (n_valid, nv).
-    # Loop runs 3 times (one per percentile) instead of ny*nx times.
-
-    wv = weights.reshape(nv, -1).T          # (npix, nv)
-    valid_flat = valid.ravel()
-    wv = wv[valid_flat]                     # (n_valid, nv)
-    total_valid = total.ravel()[valid_flat]
-    n_valid = wv.shape[0]
+    intensity = np.clip(data, a_min=0.0, a_max=None).reshape(nv, -1).T
+    cumsum = np.cumsum(intensity, axis=1)
+    total = cumsum[:, -1]
+    valid_flat = total > 0.0
+    intensity = intensity[valid_flat]
+    cumsum = cumsum[valid_flat]
+    total = total[valid_flat]
+    weights = cumsum / total[:, None]
+    n_valid = weights.shape[0]
     i_arr = np.arange(n_valid)
 
+    # Only channels which contribute to the cumulative sum carry noise: those
+    # zeroed by a mask or by the clip at zero have no first-order response to
+    # the noise. `nvar` is the cumulative variance of the cumulative sum.
+
+    var = np.where(intensity > 0.0, rms ** 2, 0.0)
+    nvar = np.cumsum(var, axis=1)
+    nvar_total = nvar[:, -1]
+
     wp_valid = np.empty((3, n_valid))
-    dwp_valid = np.empty((3, n_valid))
+    grad = np.empty((3, n_valid))
+    lin = np.empty((3, n_valid))
+    quad = np.empty((3, n_valid))
+    nvar_lo = np.empty((3, n_valid))
+    var_hi = np.empty((3, n_valid))
+    frac = np.empty((3, n_valid))
+    idx_hi = np.empty((3, n_valid), dtype=int)
 
     for q, p in enumerate(pcnts):
-        # Upper bracket index for linear interpolation.
-        idx1 = np.argmax(wv >= p, axis=1)
-        idx0 = np.clip(idx1 - 1, 0, nv - 1)
 
-        # Linear interpolation of velax+dv at the percentile.
-        w0, w1 = wv[i_arr, idx0], wv[i_arr, idx1]
-        dw = w1 - w0
-        t = np.where(dw > 0, np.clip((p - w0) / dw, 0.0, 1.0), 0.5)
-        wp_valid[q] = velax[idx0] + dv + t * (velax[idx1] - velax[idx0])
+        # The percentile falls between channels idx0 and idx1, with the
+        # cumulative sum at each channel assigned to velax + dv. If the first
+        # channel alone exceeds p, treat it as rising from zero one channel
+        # earlier.
 
-        # Nearest index for gradient dv/dw (error propagation), central diff.
-        k = np.argmin(np.abs(wv - p), axis=1)
-        km1 = np.clip(k - 1, 0, nv - 1)
-        kp1 = np.clip(k + 1, 0, nv - 1)
-        at_lo, at_hi = k == 0, k == nv - 1
-        dvel = np.where(at_lo, velax[1] - velax[0],
-               np.where(at_hi, velax[-1] - velax[-2],
-                        velax[kp1] - velax[km1]))
-        dwgt = np.where(at_lo, wv[i_arr, 1] - wv[i_arr, 0],
-               np.where(at_hi, wv[i_arr, -1] - wv[i_arr, -2],
-                        wv[i_arr, kp1] - wv[i_arr, km1]))
+        idx1 = np.argmax(weights >= p, axis=1)
+        idx0 = idx1 - 1
+        first = idx0 < 0
+        idx0c = np.clip(idx0, 0, None)
+        cum0 = np.where(first, 0.0, cumsum[i_arr, idx0c])
+        delta = np.where(first, velax[1] - velax[0],
+                         velax[idx1] - velax[idx0c])
+        vel0 = np.where(first, velax[0] - (velax[1] - velax[0]),
+                        velax[idx0c])
+        inten1 = intensity[i_arr, idx1]
+        t = np.clip((p * total - cum0) / inten1, 0.0, 1.0)
+        wp_valid[q] = np.where(first, velax[0] + dv, vel0 + dv + t * delta)
 
-        # The uncertainty on the (normalized, dimensionless) cumulative sum at
-        # channel k is rms * sqrt(k + 1) / total, which is converted to a
-        # velocity through the local gradient of velocity with cumulative
-        # weight, |dvel / dwgt|.
+        # Linearising wp = vel0 + dv + delta * (p * T - W0) / I1 gives
+        # d(wp) = delta / I1 * (p * dT - dW0 - t * dI1), i.e. a weighted sum
+        # of the per-channel noise. Store the pieces needed to build the
+        # (co)variances, which share noise between the three percentiles.
 
-        dwgt_sigma = rms * np.sqrt(k + 1.0) / total_valid
-        finite = dwgt != 0
-        dwp_valid[q] = np.where(finite,
-                                np.abs(dvel / np.where(finite, dwgt, 1.0))
-                                * dwgt_sigma, 0.0)
+        grad[q] = delta / inten1
+        nvar_lo[q] = np.where(first, 0.0, nvar[i_arr, idx0c])
+        var_hi[q] = var[i_arr, idx1]
+        frac[q] = t
+        idx_hi[q] = idx1
+        lin[q] = nvar_lo[q] + t * var_hi[q]
+        quad[q] = nvar_lo[q] + t ** 2 * var_hi[q]
+
+    def _cov(a, b):
+        """Covariance between percentiles ``a <= b``."""
+        if a == b:
+            cross = quad[a]
+        else:
+            same = idx_hi[a] == idx_hi[b]
+            cross = nvar_lo[a] + frac[a] * var_hi[a] * np.where(same,
+                                                                  frac[b], 1.0)
+        return grad[a] * grad[b] * (pcnts[a] * pcnts[b] * nvar_total
+                                    - pcnts[a] * lin[b] - pcnts[b] * lin[a]
+                                    + cross)
+
+    cov_valid = {(a, b): _cov(a, b) for a in range(3) for b in range(a, 3)}
 
     # Reconstruct full arrays with NaN for invalid (zero-flux) pixels.
 
-    wp = np.full((3, ny * nx), np.nan)
-    dwp = np.full((3, ny * nx), np.nan)
-    wp[:, valid_flat] = wp_valid
-    dwp[:, valid_flat] = dwp_valid
-    wp = wp.reshape(3, ny, nx)
-    dwp = dwp.reshape(3, ny, nx)
+    def _unflatten(x):
+        out = np.full(ny * nx, np.nan)
+        out[valid_flat] = x
+        return out.reshape(ny, nx)
 
-    # Calculate the useful quantities.
+    wp = np.array([_unflatten(x) for x in wp_valid])
+    cov = {key: _unflatten(val) for key, val in cov_valid.items()}
 
-    wp50, dwp50 = wp[1], dwp[1]
+    # Calculate the useful quantities, including the covariance between the
+    # percentiles when combining their uncertainties.
+
+    def _sqrt(x):
+        return np.sqrt(np.clip(x, 0.0, None))
+
+    wp50, dwp50 = wp[1], _sqrt(cov[1, 1])
     wpdVb = np.sqrt(2) * (wp50 - wp[0])
-    dwpdVb = np.sqrt(2) * np.hypot(dwp50, dwp[0])
+    dwpdVb = np.sqrt(2) * _sqrt(cov[0, 0] + cov[1, 1] - 2.0 * cov[0, 1])
     wpdVr = np.sqrt(2) * (wp[2] - wp50)
-    dwpdVr = np.sqrt(2) * np.hypot(dwp[2], dwp50)
+    dwpdVr = np.sqrt(2) * _sqrt(cov[1, 1] + cov[2, 2] - 2.0 * cov[1, 2])
     wp1684 = 0.5 * (wp[0] + wp[2])
-    dwp1684 = 0.5  * np.hypot(dwp[0], dwp[2])
+    dwp1684 = 0.5 * _sqrt(cov[0, 0] + cov[2, 2] + 2.0 * cov[0, 2])
 
     # Return the values.
 

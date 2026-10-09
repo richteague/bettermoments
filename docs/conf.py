@@ -21,7 +21,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 project = 'bettermoments'
 copyright = '2018-2026, Richard Teague'
 author = 'Richard Teague'
-version = release = '1.11.1'
+version = release = '2.0.0'
 
 # -- General configuration ---------------------------------------------------
 
